@@ -1,0 +1,325 @@
+<title>Ship Combat — Art Direction</title>
+<style>
+__FONTFACES__
+
+/* Deliberately single-theme: this is a presentation surface for bright
+   daylight renders, so the shell stays dark in every viewer theme and every
+   color is painted explicitly rather than inherited. */
+:root {
+  --void: #0d1418;
+  --panel: #141d23;
+  --panel-2: #111a1f;
+  --panel-border: rgba(226, 168, 79, 0.2);
+  --hairline: rgba(233, 241, 240, 0.1);
+  --ink: #eef3f4;
+  --ink-muted: #9aabb0;
+  --ink-faint: #6a7d82;
+  --brass: #e2a84f;
+  --brass-soft: rgba(226, 168, 79, 0.12);
+
+  --font-display: 'Fraunces', Georgia, 'Iowan Old Style', serif;
+  --font-body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body { padding: 56px 32px 80px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  font-weight: 500;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  line-height: 1.06;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+.dek {
+  font-size: 1.03rem;
+  line-height: 1.62;
+  color: var(--ink-muted);
+  max-width: 64ch;
+  margin: 0;
+}
+
+.meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.meta-row b { color: var(--ink-muted); font-weight: 500; }
+
+/* --- hero --- */
+
+.hero {
+  margin-top: 40px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.hero-canvas-wrap { width: 100%; aspect-ratio: 21 / 9; background: #8bbfe9; }
+.hero-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.hero-cap {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--hairline);
+}
+
+/* --- scene pair --- */
+
+.scenes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 24px; }
+@media (max-width: 860px) { .scenes { grid-template-columns: 1fr; } }
+
+.scene-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.scene-canvas-wrap { width: 100%; aspect-ratio: 16 / 10; background: #8bbfe9; }
+.scene-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.scene-body { padding: 18px 20px 20px; }
+.scene-tag {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+.scene-title { font-family: var(--font-display); font-weight: 600; font-size: 1.22rem; margin: 0.28rem 0 0.45rem; }
+.scene-copy { font-size: 0.9rem; line-height: 1.55; color: var(--ink-muted); margin: 0; max-width: 46ch; }
+
+/* --- palette --- */
+
+section { margin-top: 52px; }
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.section-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.42rem; margin: 0; }
+.section-head .note { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); }
+
+.palette { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 12px; }
+.chip {
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.chip .swatch { height: 58px; }
+.chip .chip-body { padding: 9px 11px 11px; }
+.chip .chip-name { font-size: 0.8rem; font-weight: 600; color: var(--ink); }
+.chip .chip-hex {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-faint);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- rules --- */
+
+.rule-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rule { flex: 1 1 290px; background: var(--panel-2); padding: 20px 22px; }
+.rule-label { font-weight: 600; font-size: 0.92rem; color: var(--ink); margin: 0 0 6px; }
+.rule-desc { font-size: 0.85rem; line-height: 1.5; color: var(--ink-muted); margin: 0; }
+
+.callout {
+  margin-top: 40px;
+  border-left: 2px solid var(--brass);
+  background: var(--brass-soft);
+  padding: 18px 24px;
+  border-radius: 0 3px 3px 0;
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.callout .tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  flex-shrink: 0;
+}
+.callout p { margin: 0; font-size: 0.93rem; line-height: 1.56; color: var(--ink); max-width: 66ch; }
+.callout code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brass); }
+
+footer {
+  margin-top: 48px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Ship Combat — Visual Development</div>
+  <h1>Art Direction</h1>
+  <p class="dek">Flat-shaded low-poly under a bright sun, with distance doing the work that detail usually does.
+    Every image on this page is rendered live in your browser from actual 3D geometry — same lighting model, same
+    palette, same construction rules we'd take into Babylon.js.</p>
+  <div class="meta-row">
+    <span><b>Status</b> Direction v0.2</span>
+    <span><b>Engine target</b> Babylon.js</span>
+    <span><b>Companion doc</b> GAME_DESIGN.md</span>
+  </div>
+
+  <div class="hero">
+    <div class="hero-canvas-wrap"><canvas id="scene-hero"></canvas></div>
+    <div class="hero-cap">
+      <span>Key art — player sloop under sail, mid-afternoon</span>
+      <span>flat-shaded · ambient-dominant sun · distance haze</span>
+    </div>
+  </div>
+
+  <div class="scenes">
+    <div class="scene-card">
+      <div class="scene-canvas-wrap"><canvas id="scene-chase"></canvas></div>
+      <div class="scene-body">
+        <div class="scene-tag">Range · Combat</div>
+        <h3 class="scene-title">Open-water engagement</h3>
+        <p class="scene-copy">Two ships, clearly distinguishable at distance by hull color and sail tone alone —
+          the readability test that matters most in a fight.</p>
+      </div>
+    </div>
+
+    <div class="scene-card">
+      <div class="scene-canvas-wrap"><canvas id="scene-island"></canvas></div>
+      <div class="scene-body">
+        <div class="scene-tag">Range · Terrain</div>
+        <h3 class="scene-title">Island approach</h3>
+        <p class="scene-copy">The same rules applied to land — headland, trees and calmer water, all built from
+          the same faceted domes as the ships. A third hull color still reads as the same world.</p>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>Palette</h2>
+      <span class="note">five hues carry a scene; the accent is reserved</span>
+    </div>
+    <div class="palette" id="palette"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Construction Rules</h2>
+      <span class="note">what makes it read as this game and not generic low-poly</span>
+    </div>
+    <div class="rule-grid">
+      <div class="rule">
+        <p class="rule-label">Ambient dominates the sun</p>
+        <p class="rule-desc">Fill light carries roughly twice the key. Faces turned away from the sun stay bright
+          and colorful — nothing crushes to black. This is what makes it feel airy rather than dramatic.</p>
+      </div>
+      <div class="rule">
+        <p class="rule-label">Distance haze does the depth</p>
+        <p class="rule-desc">Everything fades toward the horizon color with distance. It replaces detail, sells
+          scale, and lets far geometry be extremely cheap.</p>
+      </div>
+      <div class="rule">
+        <p class="rule-label">Flat facets, no gradients</p>
+        <p class="rule-desc">One flat fill per triangle. All shape reads from the angle between neighboring
+          facets, never from blended shading or texture.</p>
+      </div>
+      <div class="rule">
+        <p class="rule-label">Faceted water, damped by distance</p>
+        <p class="rule-desc">Waves are real displaced geometry — choppy near the camera, flattening toward the
+          horizon so the far sea reads calm instead of noisy.</p>
+      </div>
+      <div class="rule">
+        <p class="rule-label">Chunky silhouettes</p>
+        <p class="rule-desc">A ship is a hull, a mast, and two or three sails. If it isn't recognizable as a
+          silhouette at minimap size, it has too many parts.</p>
+      </div>
+      <div class="rule">
+        <p class="rule-label">Cut at the waterline</p>
+        <p class="rule-desc">Hulls are clipped where they meet the sea, so ships sit <i>in</i> the water rather
+          than on it — the single detail that most sells the ocean.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <span class="tag">Resolved</span>
+    <p>Tone is settled: bright daylight, clean and stylized, closer to a sunny afternoon than a storm. The
+      earlier open question about grounded-vs-whimsical is closed in <code>GAME_DESIGN.md</code>. Still open —
+      how far ship customization pushes the palette before scenes stop reading as one game.</p>
+  </div>
+
+  <footer>Art direction v0.2 — rendered live from geometry with a small flat-shading renderer, not painted.
+    Faceting, haze and light rig are the spec; the Babylon.js build should reproduce these values.</footer>
+</div>
+
+<script>
+__LOWPOLY3D_JS__
+</script>
+<script>
+__SHIPS_JS__
+</script>
+<script>
+__SCENES_JS__
+</script>
+<script>
+mountScene('scene-hero', sceneHero);
+mountScene('scene-chase', sceneChase);
+mountScene('scene-island', sceneIsland);
+
+const paletteEntries = [
+  { name: 'Sea', hex: SEA.deep },
+  { name: 'Crest', hex: SEA.crest },
+  { name: 'Haze', hex: HAZE },
+  { name: 'Hull', hex: PLAYER_SHIP.hull },
+  { name: 'Deck', hex: PLAYER_SHIP.deck },
+  { name: 'Sail', hex: PLAYER_SHIP.sail },
+  { name: 'Accent', hex: '#e2a84f' },
+];
+document.getElementById('palette').innerHTML = paletteEntries.map(function (e) {
+  return '<div class="chip"><div class="swatch" style="background:' + e.hex + '"></div>' +
+    '<div class="chip-body"><div class="chip-name">' + e.name + '</div>' +
+    '<div class="chip-hex">' + e.hex.toUpperCase() + '</div></div></div>';
+}).join('');
+</script>

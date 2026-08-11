@@ -1,0 +1,474 @@
+<title>Ship Combat — Combat HUD</title>
+<style>
+__FONTFACES__
+
+/* Single-theme by intent — see the art direction board. */
+:root {
+  --void: #0d1418;
+  --panel: #141d23;
+  --panel-2: #111a1f;
+  --panel-border: rgba(226, 168, 79, 0.2);
+  --hairline: rgba(233, 241, 240, 0.1);
+  --ink: #eef3f4;
+  --ink-muted: #9aabb0;
+  --ink-faint: #6a7d82;
+  --brass: #e2a84f;
+  --brass-soft: rgba(226, 168, 79, 0.12);
+  --ok: #63b981;
+  --warn: #e89a3c;
+  --danger: #e05a3c;
+
+  --glass: rgba(10, 20, 26, 0.62);
+  --glass-line: rgba(255, 255, 255, 0.14);
+
+  --font-display: 'Fraunces', Georgia, 'Iowan Old Style', serif;
+  --font-body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body { padding: 56px 32px 80px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  font-weight: 500;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  line-height: 1.06;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+.dek {
+  font-size: 1.03rem;
+  line-height: 1.62;
+  color: var(--ink-muted);
+  max-width: 66ch;
+  margin: 0;
+}
+
+.meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.meta-row b { color: var(--ink-muted); font-weight: 500; }
+
+/* --- HUD screen --- */
+
+.hud-frame {
+  position: relative;
+  margin-top: 42px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: #8bbfe9;
+}
+
+.hud-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.hud-layer { position: absolute; inset: 0; }
+.hud-layer * { pointer-events: none; }
+
+.bracket { position: absolute; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.5); }
+.bracket.tl { top: 13px; left: 13px; border-right: none; border-bottom: none; }
+.bracket.tr { top: 13px; right: 13px; border-left: none; border-bottom: none; }
+.bracket.bl { bottom: 13px; left: 13px; border-right: none; border-top: none; }
+.bracket.br { bottom: 13px; right: 13px; border-left: none; border-top: none; }
+
+.panel-chip {
+  position: absolute;
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  border-radius: 3px;
+  padding: 11px 14px;
+  backdrop-filter: blur(3px);
+}
+
+.badge {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--void);
+  border: 1px solid var(--brass);
+  color: var(--brass);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.panel-label {
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.panel-title { font-family: var(--font-display); font-weight: 600; font-size: 0.98rem; color: #fff; margin: 2px 0 0; }
+
+.bar-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.bar-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  width: 30px;
+  flex-shrink: 0;
+}
+.bar-track { flex: 1; height: 6px; background: rgba(0, 0, 0, 0.45); border-radius: 2px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 2px; }
+.bar-value {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: #fff;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.sub-line {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.hud-target { top: 22px; left: 22px; width: 224px; }
+
+.hud-wind { top: 22px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 170px; }
+.wind-row { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; }
+.wind-arrow {
+  width: 0; height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 12px solid var(--brass);
+  transform: rotate(148deg);
+}
+.wind-heading { font-family: var(--font-display); font-weight: 600; font-size: 1rem; color: #fff; }
+.wind-sub { font-family: var(--font-mono); font-size: 0.68rem; color: #8fe0aa; margin-top: 3px; }
+
+.hud-minimap { top: 22px; right: 22px; padding: 0; width: 132px; height: 132px; border-radius: 50%; overflow: hidden; }
+.hud-minimap canvas { width: 100%; height: 100%; display: block; }
+.minimap-n {
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 0.56rem; color: var(--brass); letter-spacing: 0.06em;
+}
+
+.hud-ownship { bottom: 22px; left: 22px; width: 248px; }
+
+.hud-broadside { bottom: 22px; left: 50%; transform: translateX(-50%); }
+.broadside-cols { display: flex; gap: 30px; }
+.broadside-col { text-align: center; }
+.pip-row { display: flex; gap: 4px; margin-top: 8px; justify-content: center; }
+.pip { width: 9px; height: 9px; border-radius: 2px; border: 1px solid var(--brass); }
+.pip.filled { background: var(--brass); }
+.broadside-status { margin-top: 6px; font-family: var(--font-mono); font-size: 0.62rem; }
+.broadside-status.ready { color: #8fe0aa; }
+.broadside-status.loading { color: rgba(255, 255, 255, 0.55); }
+.ammo-row { display: flex; gap: 6px; margin-top: 12px; justify-content: center; }
+.ammo-chip {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-line);
+  color: rgba(255, 255, 255, 0.72);
+}
+.ammo-chip.active { background: var(--brass); border-color: var(--brass); color: #221806; font-weight: 600; }
+
+/* --- legend --- */
+
+section { margin-top: 52px; }
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.section-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.42rem; margin: 0; }
+.section-head .note { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); }
+
+.rule-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.rule { flex: 1 1 300px; background: var(--panel-2); padding: 20px 22px; }
+.rule-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--brass);
+  color: var(--brass); font-family: var(--font-mono); font-size: 0.64rem; margin-bottom: 10px;
+}
+.rule-label { font-weight: 600; font-size: 0.92rem; color: var(--ink); margin: 0 0 6px; }
+.rule-desc { font-size: 0.85rem; line-height: 1.5; color: var(--ink-muted); margin: 0; }
+
+.callout {
+  margin-top: 40px;
+  border-left: 2px solid var(--brass);
+  background: var(--brass-soft);
+  padding: 18px 24px;
+  border-radius: 0 3px 3px 0;
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.callout .tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  flex-shrink: 0;
+}
+.callout p { margin: 0; font-size: 0.93rem; line-height: 1.56; color: var(--ink); max-width: 66ch; }
+
+footer {
+  margin-top: 48px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Ship Combat — Interface</div>
+  <h1>Combat HUD</h1>
+  <p class="dek">The in-combat screen, drawn over a live render of the actual third-person camera framing —
+    behind and slightly above the player's ship, enemy off the port bow. Numbered panels map to the reference
+    list below.</p>
+  <div class="meta-row">
+    <span><b>Status</b> Layout v0.2</span>
+    <span><b>Camera</b> Third-person, behind ship</span>
+    <span><b>Companion doc</b> GAME_DESIGN.md</span>
+  </div>
+
+  <div class="hud-frame">
+    <canvas class="hud-canvas" id="scene-combat"></canvas>
+    <div class="hud-layer">
+      <div class="bracket tl"></div>
+      <div class="bracket tr"></div>
+      <div class="bracket bl"></div>
+      <div class="bracket br"></div>
+
+      <div class="panel-chip hud-target">
+        <div class="badge">1</div>
+        <div class="panel-label">Target</div>
+        <div class="panel-title">Iron Gull — Frigate</div>
+        <div class="bar-row">
+          <span class="bar-label">Hull</span>
+          <span class="bar-track"><span class="bar-fill" style="width: 38%; background: var(--danger);"></span></span>
+          <span class="bar-value">38%</span>
+        </div>
+        <div class="sub-line">Range 210m · Port arc</div>
+      </div>
+
+      <div class="panel-chip hud-wind">
+        <div class="badge">2</div>
+        <div class="panel-label">Wind</div>
+        <div class="wind-row">
+          <span class="wind-arrow"></span>
+          <span class="wind-heading">Beam Reach</span>
+        </div>
+        <div class="wind-sub">+8% Speed</div>
+      </div>
+
+      <div class="panel-chip hud-minimap">
+        <div class="badge">3</div>
+        <canvas id="minimap-canvas"></canvas>
+        <div class="minimap-n">N</div>
+      </div>
+
+      <div class="panel-chip hud-ownship">
+        <div class="badge">4</div>
+        <div class="panel-label">Your Ship</div>
+        <div class="panel-title">Sea Wolf — Sloop</div>
+        <div class="bar-row">
+          <span class="bar-label">Hull</span>
+          <span class="bar-track"><span class="bar-fill" style="width: 72%; background: var(--ok);"></span></span>
+          <span class="bar-value">72%</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">Sail</span>
+          <span class="bar-track"><span class="bar-fill" style="width: 45%; background: var(--warn);"></span></span>
+          <span class="bar-value">45%</span>
+        </div>
+        <div class="sub-line">Crew 8/12</div>
+      </div>
+
+      <div class="panel-chip hud-broadside">
+        <div class="badge">5</div>
+        <div class="broadside-cols">
+          <div class="broadside-col">
+            <div class="panel-label">Port</div>
+            <div class="pip-row">
+              <span class="pip filled"></span><span class="pip filled"></span>
+              <span class="pip filled"></span><span class="pip filled"></span>
+            </div>
+            <div class="broadside-status ready">Ready</div>
+          </div>
+          <div class="broadside-col">
+            <div class="panel-label">Starboard</div>
+            <div class="pip-row">
+              <span class="pip filled"></span><span class="pip filled"></span>
+              <span class="pip"></span><span class="pip"></span>
+            </div>
+            <div class="broadside-status loading">Reloading 1.8s</div>
+          </div>
+        </div>
+        <div class="ammo-row">
+          <span class="ammo-chip active">Round Shot</span>
+          <span class="ammo-chip">Chain Shot</span>
+          <span class="ammo-chip">Grape Shot</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>What Each Panel Does</h2>
+      <span class="note">reference for the layout above</span>
+    </div>
+    <div class="rule-grid">
+      <div class="rule">
+        <div class="rule-num">1</div>
+        <p class="rule-label">Target readout</p>
+        <p class="rule-desc">Nameplate, hull %, range, and which broadside arc the target sits in. Only shown
+          while an enemy is in view.</p>
+      </div>
+      <div class="rule">
+        <div class="rule-num">2</div>
+        <p class="rule-label">Wind indicator</p>
+        <p class="rule-desc">Relative wind direction and its speed effect — the main input to every positioning
+          decision, so it sits top-center where the eye already is.</p>
+      </div>
+      <div class="rule">
+        <div class="rule-num">3</div>
+        <p class="rule-label">Minimap</p>
+        <p class="rule-desc">Heading, nearby ships, and coastline at a glance. Always on, top-right per genre
+          convention.</p>
+      </div>
+      <div class="rule">
+        <div class="rule-num">4</div>
+        <p class="rule-label">Hull &amp; sail status</p>
+        <p class="rule-desc">Your two damage tracks, always visible bottom-left — hull is the health bar, sail
+          governs speed and turn rate.</p>
+      </div>
+      <div class="rule">
+        <div class="rule-num">5</div>
+        <p class="rule-label">Broadside control</p>
+        <p class="rule-desc">Port/starboard reload state and active ammo type — the primary combat input,
+          anchored bottom-center directly under the ship.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <span class="tag">Open</span>
+    <p>The panels are deliberately dark glass so they hold up over a bright sky. Worth deciding whether they
+      should fade out when nothing is happening, leaving only the wind indicator and broadside pips on screen
+      during ordinary sailing.</p>
+  </div>
+
+  <footer>HUD layout v0.2 — information hierarchy and framing for review. Panel chrome (icons, transitions,
+    damage feedback) still to be designed.</footer>
+</div>
+
+<script>
+__LOWPOLY3D_JS__
+</script>
+<script>
+__SHIPS_JS__
+</script>
+<script>
+__SCENES_JS__
+</script>
+<script>
+mountScene('scene-combat', sceneCombat);
+
+function renderMinimap() {
+  const canvas = document.getElementById('minimap-canvas');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = canvas.getBoundingClientRect();
+  const size = rect.width;
+  if (!size) return;
+  canvas.width = Math.round(size * dpr);
+  canvas.height = Math.round(size * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  ctx.fillStyle = '#0d2b33';
+  ctx.fillRect(0, 0, size, size);
+
+  ctx.strokeStyle = 'rgba(226,168,79,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(size / 2, 0); ctx.lineTo(size / 2, size);
+  ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2);
+  ctx.stroke();
+
+  ctx.fillStyle = '#3f6b4a';
+  ctx.beginPath();
+  ctx.moveTo(size * 0.76, 0);
+  ctx.lineTo(size, 0);
+  ctx.lineTo(size, size * 0.3);
+  ctx.lineTo(size * 0.88, size * 0.17);
+  ctx.closePath();
+  ctx.fill();
+
+  const cx = size / 2, cy = size / 2;
+  ctx.fillStyle = '#e2a84f';
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 9); ctx.lineTo(cx - 6, cy + 7); ctx.lineTo(cx + 6, cy + 7);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = '#e05a3c';
+  ctx.beginPath();
+  ctx.arc(cx + size * 0.19, cy - size * 0.13, 3.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+renderMinimap();
+let mmTimer = null;
+window.addEventListener('resize', function () {
+  clearTimeout(mmTimer);
+  mmTimer = setTimeout(renderMinimap, 150);
+});
+</script>

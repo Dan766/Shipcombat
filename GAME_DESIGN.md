@@ -2,9 +2,9 @@
 
 _Living document. This is the starting point for requirements — expect it to change as we iterate._
 
-**Visual references (v0.1):**
-- [Art Direction Mood Board](https://claude.ai/code/artifact/7b0e04e4-4b83-4dff-acde-76258c5c2249) — two tone directions (Grounded Adventure vs. Toy-like Whimsical) to react to.
-- [Combat HUD Mockup](https://claude.ai/code/artifact/3b0a7c9f-8096-49cf-9254-5d7af34e307d) — in-combat screen layout: target readout, wind indicator, minimap, hull/sail status, broadside control.
+**Visual references (v0.2):**
+- [Art Direction](https://claude.ai/code/artifact/7b0e04e4-4b83-4dff-acde-76258c5c2249) — key art, range tests, palette, and construction rules. Rendered live in 3D.
+- [Combat HUD](https://claude.ai/code/artifact/3b0a7c9f-8096-49cf-9254-5d7af34e307d) — in-combat screen over the actual third-person camera framing.
 
 ## Overview
 
@@ -74,14 +74,36 @@ able to fill either role.
 
 ## Art Direction
 
-- Low-poly, flat-shaded geometry — no gradients or photorealistic
-  textures; chunky, simplified silhouettes for ships and terrain.
-- A small, deliberate color palette (sea blues/teals, sail cream, wood
-  hull tones, one or two accent colors) rather than a wide realistic
-  range.
-- **Open question**: overall tone — semi-realistic pirate-adventure vs. a
-  more whimsical/toy-like look. See the mockups for a starting reference
-  point to react to.
+Settled: **bright daylight, clean and stylized low-poly** — a sunny
+afternoon rather than a storm. The rules below are the spec the Babylon.js
+build should reproduce; the mood board renders them live from real geometry.
+
+- **Ambient dominates the sun.** Fill light carries roughly twice the key
+  (ambient ≈ 0.84, sun ≈ 0.48, with a wrapped lambert term). Faces turned
+  away from the sun stay bright and colorful — nothing crushes to black.
+  This is what makes the look airy instead of dramatic.
+  → Babylon: `HemisphericLight` + a low-intensity `DirectionalLight`.
+- **Distance haze does the depth work.** Everything fades toward the
+  horizon color with distance, replacing detail and selling scale.
+  → Babylon: `scene.fogMode = FOGMODE_EXP` tuned to the horizon color.
+- **Flat facets, no gradients.** One flat fill per triangle; shape reads
+  from the angle between neighboring facets.
+  → Babylon: flat/faceted normals (`mesh.convertToFlatShadedMesh()`).
+- **Faceted water, damped by distance.** Waves are displaced geometry,
+  choppy near camera and flattening toward the horizon.
+- **Chunky silhouettes.** A ship is a hull, a mast, and two or three
+  sails. If it isn't recognizable at minimap size, it has too many parts.
+- **Cut at the waterline.** Hulls are clipped where they meet the sea so
+  ships sit *in* the water rather than on it.
+
+Palette (per scene, five hues plus a reserved accent): sea `#2F97B8`,
+crest `#7ED6DD`, haze `#D8E8F2`, hull `#A5662F`, deck `#D3A05A`, sail
+`#F4ECD8`, accent `#E2A84F`. Ship identity comes from hull/sail tone —
+distinct enough to tell friend from foe at range.
+
+`prototype/` holds the small flat-shading renderer used for the mockups.
+It is not the game engine — it exists so the art direction is executable
+and reviewable, and so the values above are grounded in something real.
 
 ## Progression / Meta (placeholder)
 
@@ -96,8 +118,10 @@ unlockable ammo types. No commitments yet.
 - [ ] Ship roster size and differentiation at launch (one ship class vs.
       several).
 - [ ] Target session length for a PvP match.
-- [ ] Overall art tone: grounded pirate-adventure vs. whimsical/toy-like
-      (see mockups).
+- [x] ~~Overall art tone~~ — resolved: bright daylight stylized low-poly
+      (see Art Direction above).
+- [ ] How far ship customization can push the palette before scenes stop
+      reading as one game.
 - [ ] Monetization / progression systems — in scope for the mockup phase
       at all, or purely post-MVP?
 - [ ] Minimum player count per match, and how bots fill gaps (matchmaking
