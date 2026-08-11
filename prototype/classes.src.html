@@ -132,6 +132,9 @@ section { margin-top: 52px; }
   display: flex;
   gap: 18px;
   flex-wrap: wrap;
+  /* Takes the slack so specs and stat bars align across a row whatever the
+     blurb length. */
+  margin-top: auto;
   padding: 12px 0;
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
@@ -214,7 +217,9 @@ footer {
   <h1>Ship Classes</h1>
   <p class="dek">Four hulls on a single axis: speed and turn traded for hull and broadside weight. No matchup
     counters — a heavier ship wins any trade it can force, and a lighter ship's whole job is refusing that
-    trade. Every render below is built from the same class definitions the game would use.</p>
+    trade. They are told apart by rig, not by scale: a fore-and-aft sloop, two square-riggers of different
+    height, and a lateen-mizzened galleon. Every render is built from the same class definitions the game
+    would use.</p>
   <div class="meta-row">
     <span><b>Status</b> Roster v0.1</span>
     <span><b>Model</b> Linear tiers</span>
@@ -225,7 +230,7 @@ footer {
     <div class="hero-canvas-wrap"><canvas id="scene-lineup"></canvas></div>
     <div class="hero-cap">
       <span>All four at true relative scale — 16 m sloop to 34 m galleon</span>
-      <span>near-orthographic · one waterline</span>
+      <span>identical heading · near-orthographic</span>
     </div>
   </div>
 
@@ -301,7 +306,7 @@ document.getElementById('class-grid').innerHTML = SHIP_CLASS_ORDER.map(function 
           '<span>Length <b>' + c.length + '</b></span>' +
           '<span>Guns <b>' + c.guns + '</b></span>' +
           '<span>Crew <b>' + c.crew + '</b></span>' +
-          '<span>Masts <b>' + c.geo.masts.length + '</b></span>' +
+          '<span>Rig <b>' + c.rig + '</b></span>' +
         '</div>' +
         '<div class="stats">' + stats + '</div>' +
       '</div>' +
@@ -313,8 +318,7 @@ document.getElementById('sil-strip').innerHTML = SHIP_CLASS_ORDER.map(function (
   return '' +
     '<div class="sil-cell">' +
       '<div class="sil-canvas-wrap"><canvas id="sil-' + id + '"></canvas></div>' +
-      '<div class="sil-label"><span>' + c.name + '</span><span>' + c.geo.masts.length + ' mast' +
-        (c.geo.masts.length > 1 ? 's' : '') + '</span></div>' +
+      '<div class="sil-label"><span>' + c.name + '</span><span>' + c.rig + '</span></div>' +
     '</div>';
 }).join('');
 

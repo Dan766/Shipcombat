@@ -114,18 +114,33 @@ wins any trade it can force, and a lighter ship's job is to refuse that
 trade by controlling range and angle. Skill decides fights rather than
 matchups, and every class is legible to a new player from its silhouette.
 
-| Class | Role | Masts | Length | Guns | Crew | Speed | Turn | Hull | Broadside |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Sloop | Skirmisher | 1 | 16 m | 8 | 12 | 5 | 5 | 2 | 2 |
-| Brig | All-rounder | 2 | 21 m | 16 | 24 | 4 | 4 | 3 | 3 |
-| Frigate | Line fighter | 3 | 27 m | 28 | 42 | 3 | 3 | 4 | 4 |
-| Galleon | Fortress | 4 | 34 m | 44 | 68 | 2 | 1 | 5 | 5 |
+| Class | Role | Rig | Length | L:B | Guns | Crew | Speed | Turn | Hull | Broadside |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Sloop | Skirmisher | Fore-and-aft | 16 m | 3.9 | 8 | 12 | 5 | 5 | 2 | 2 |
+| Brig | All-rounder | Square, 2 masts | 21 m | 3.5 | 16 | 24 | 4 | 4 | 3 | 3 |
+| Frigate | Line fighter | Square, 3 masts | 27 m | 3.7 | 28 | 42 | 3 | 3 | 4 | 4 |
+| Galleon | Fortress | Square + lateen | 34 m | 3.1 | 44 | 68 | 2 | 1 | 5 | 5 |
 
 Ratings are 1–5 relative placeholders stating intent, not tuned values.
-Mast count is the primary silhouette cue and rises with tier, so class
-reads at a glance and at distance; gun ports along the hull are the
-secondary cue. Both are verified in the Ship Classes mockup's silhouette
-test.
+
+**Classes are told apart by rig, not by scale.** Scaling one hull four
+times produces four ships that read identically at any distance — the
+first pass did exactly that and it did not work. Each class now has its
+own rig and its own hull proportions:
+
+- **Sloop** — the only fore-and-aft rig: one tall mainsail and a jib, no
+  square canvas. Finest hull in the roster (L:B 3.9) and the lowest
+  freeboard.
+- **Brig** — two square-rigged masts with a spanker aft.
+- **Frigate** — three masts carrying topgallants; the tallest rig afloat.
+- **Galleon** — four masts ending in a lateen mizzen, two full gun decks,
+  a beakhead forward and a four-deck stern castle. Beamiest hull (L:B
+  3.1) and by far the tallest sides.
+
+Gun ports are the secondary cue and follow the hull surface in both axes,
+so port count reads as firepower at a glance. All four are verified
+distinguishable in flat black at roughly minimap size — see the
+silhouette test in the Ship Classes mockup.
 
 Definitions live in `prototype/shipclasses.js` — geometry and stats in one
 table, so the renders can't drift from the numbers printed beside them.

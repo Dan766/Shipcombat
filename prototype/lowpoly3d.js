@@ -140,15 +140,46 @@ function makeDome(r, h, seg, rings, color, seed, rough) {
 
 // Lofted hull: two closed rings (deck outline and narrower keel line)
 // skinned with quads, then capped with a deck.
+// The hull's plan view, as fractions of length and beam. Shared so anything
+// that needs to sit ON the hull (gun ports, fenders) can ask where the
+// planking actually is instead of assuming a box.
+const HULL_PROFILE = [
+  [0.50, 0.00], [0.42, 0.26], [0.26, 0.44], [0.02, 0.50],
+  [-0.24, 0.48], [-0.44, 0.38], [-0.50, 0.20],
+  [-0.50, -0.20], [-0.44, -0.38], [-0.24, -0.48], [0.02, -0.50],
+  [0.26, -0.44], [0.42, -0.26],
+];
+
+const KEEL_TAPER_DEFAULT = 0.42;
+
+// Half-width of the hull at a given fraction of length, as a fraction of beam
+// (0 at the very bow, 0.5 amidships). Linear interpolation along the
+// positive-z side of the profile.
+function hullHalfWidthFrac(xFrac) {
+  const pts = HULL_PROFILE.filter(function (p) { return p[1] >= 0; });
+  if (xFrac >= pts[0][0]) return pts[0][1];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (xFrac <= a[0] && xFrac >= b[0]) {
+      const t = (a[0] - xFrac) / (a[0] - b[0] || 1);
+      return a[1] + (b[1] - a[1]) * t;
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
+// Where the hull surface sits at a point on it, in world units, accounting for
+// both the plan taper and the keel taper below deck level.
+function hullSurfaceZ(xFrac, y, beam, depth, keelTaper) {
+  const kt = keelTaper == null ? KEEL_TAPER_DEFAULT : keelTaper;
+  const vert = kt + (1 - kt) * clamp(y / depth, 0, 1);
+  return hullHalfWidthFrac(xFrac) * beam * vert;
+}
+
 function makeHull(len, beam, depth, deckColor, hullColor, opts) {
   const m = mesh();
   opts = opts || {};
-  const profile = [
-    [0.50, 0.00], [0.42, 0.26], [0.26, 0.44], [0.02, 0.50],
-    [-0.24, 0.48], [-0.44, 0.38], [-0.50, 0.20],
-    [-0.50, -0.20], [-0.44, -0.38], [-0.24, -0.48], [0.02, -0.50],
-    [0.26, -0.44], [0.42, -0.26],
-  ];
+  const profile = HULL_PROFILE;
   const n = profile.length;
   for (let i = 0; i < n; i++) {
     m.verts.push([profile[i][0] * len, depth, profile[i][1] * beam]);

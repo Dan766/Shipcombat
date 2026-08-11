@@ -111,14 +111,18 @@ function sceneCombat() {
 // view, so the size comparison is honest rather than perspective-skewed.
 function sceneClassLineup() {
   const m = [oceanMesh(26, 0.5, 91)];
-  // Laid out along z with gaps proportional to hull length, and turned
-  // broadside (rotY = 90 deg) so the camera down the -x axis sees profiles.
+  // Laid out along z with gaps proportional to hull length. Turned ~32 degrees
+  // off broadside rather than square to the camera: dead broadside puts every
+  // square sail edge-on and would undersell three of the four rigs. All four
+  // rotate by the same amount, so the size comparison stays honest — each
+  // keeps ~85% of its length while showing ~52% of its sail area.
+  const LINEUP_ROT = Math.PI / 2 + 0.56;
   let z = -52;
   SHIP_CLASS_ORDER.forEach(function (id, i) {
     const geo = SHIP_CLASSES[id].geo;
     z += geo.len * 0.62;
     m.push.apply(m, buildClassShip(id, {
-      pos: [0, null, z], rotY: Math.PI / 2, heel: 0, palette: PLAYER_SHIP, seed: 4 + i,
+      pos: [0, null, z], rotY: LINEUP_ROT, heel: 0, palette: PLAYER_SHIP, seed: 4 + i,
     }));
     z += geo.len * 0.62;
   });
@@ -133,15 +137,29 @@ function sceneClassLineup() {
 // One class, three-quarter view, framed so each fills its card similarly
 // despite the roster spanning a 2x size range.
 function sceneClassPortrait(classId) {
-  const cls = SHIP_CLASSES[classId];
-  const k = cls.geo.len / 16; // frame distance scales with hull length
-  const m = [oceanMesh(22, 0.8, 40 + cls.geo.len)];
+  const geo = SHIP_CLASSES[classId].geo;
+  const m = [oceanMesh(22, 0.8, 40 + geo.len)];
   m.push.apply(m, buildClassShip(classId, {
     pos: [0, null, 0], rotY: 1.42, heel: 0.05, palette: PLAYER_SHIP, seed: 4,
   }));
+  // Framing is derived from the rig's real height rather than tuned per class:
+  // masthead height varies independently of hull length (the sloop is short
+  // but rig-tall, the galleon long and comparatively squat), so any
+  // length-based guess clips one class while wasting space on another.
+  const FOV = 50;
+  const mastTop = geo.depth + (geo.mastH || geo.len * 0.8);
+  const topY = mastTop - geo.draft;
+  const midY = topY * 0.5;
+  const halfNeed = midY + 1.5;
+  const dist = halfNeed / (Math.tan((FOV / 2) * Math.PI / 180) * 0.8);
+  const dir = vnorm([0.935, -0.191, 0.297]);
+  const target = [geo.len * 0.1875, midY, geo.len * 0.1125];
   return baseScene(
-    // Pulled back and offset toward the bow so the bowsprit stays in frame.
-    { eye: [-20 * k, 9 * k, -5.5 * k], target: [3 * k, 3.8 * k, 1.8 * k], fov: 50 },
+    {
+      eye: [target[0] - dir[0] * dist, target[1] - dir[1] * dist, target[2] - dir[2] * dist],
+      target: target,
+      fov: FOV,
+    },
     m,
     [{ x: 0.22, y: 0.14, s: 0.11, seed: 6, alpha: 0.8 }, { x: 0.76, y: 0.2, s: 0.12, seed: 12, alpha: 0.75 }],
     { color: HAZE, start: 90, end: 420 }
@@ -170,15 +188,18 @@ function sceneClassSilhouette(classId) {
     pos: [0, 0, 0], rotY: 0.7, heel: 0, clipBelow: -999,
     palette: SILHOUETTE_PALETTE, seed: 4,
   });
-  const mastTop = geo.depth + geo.len * 0.8;
+  // Rigs carry explicit heights now, so frame from the actual mast top and
+  // from hull length — whichever is the binding dimension for this class.
+  const mastTop = geo.depth + (geo.mastH || geo.len * 0.8);
+  const size = Math.max(mastTop, geo.len * 0.95);
   const flat = { top: '#dfeaf1', mid: '#dfeaf1', horizon: '#dfeaf1', cloud: '#dfeaf1' };
   const scene = baseScene(
     // Three-quarter view: dead broadside would put the square sails edge-on
     // and collapse them to lines. This is also closer to how a ship actually
     // presents itself at distance in play.
     {
-      eye: [-2.05 * mastTop, 0.86 * mastTop, -0.54 * mastTop],
-      target: [0, 0.45 * mastTop, 0],
+      eye: [-2.2 * size, 0.92 * size, -0.58 * size],
+      target: [0, 0.46 * mastTop, 0],
       fov: 38,
     },
     m,
