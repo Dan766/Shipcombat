@@ -61,6 +61,7 @@ function addFace(m, indices, color, opts) {
     if (opts.noCull) f.noCull = true;
     if (opts.alpha != null) f.alpha = opts.alpha;
     if (opts.jitter != null) f.jitter = opts.jitter;
+    if (opts.unlit) f.unlit = true;
   }
   m.faces.push(f);
 }
@@ -315,6 +316,11 @@ function makeOcean(opts) {
   const rng = seededRandom(seed || 11);
   const base = hexToRgb(color);
   const crestRgb = hexToRgb(crest);
+  // Whitecaps: any facet riding high enough breaks into foam. `foamStart` is
+  // in wave-height units, so it scales with the sea state rather than needing
+  // a new threshold per weather preset.
+  const foamRgb = hexToRgb(opts.foam || '#b7cfd6');
+  const foamStart = opts.foamStart == null ? Infinity : opts.foamStart;
   const coord = [];
   for (let i = 0; i <= cells; i++) {
     const u = (i / cells) * 2 - 1;
@@ -340,9 +346,23 @@ function makeOcean(opts) {
       const a = grid[i][j], b = grid[i + 1][j], c = grid[i + 1][j + 1], d = grid[i][j + 1];
       const avgY = (m.verts[a][1] + m.verts[b][1] + m.verts[c][1] + m.verts[d][1]) / 4;
       const t = clamp(avgY * 0.55 + 0.5, 0, 1) * 0.5 + rng() * 0.12;
-      const col = rgbToCss(mixRgb(base, crestRgb, t));
-      addFace(m, [a, b, c], col);
-      addFace(m, [a, c, d], col);
+      let rgb = mixRgb(base, crestRgb, t);
+      let foaming = false;
+      // Skip foam on oversized facets: out where the grid coarsens, one
+      // breaking cell would be a slab several ship-lengths wide.
+      const cellW = Math.max(coord[i + 1] - coord[i], coord[j + 1] - coord[j]);
+      if (avgY > foamStart && cellW < (opts.foamMaxCell || 7)) {
+        const f = clamp((avgY - foamStart) / 0.7, 0, 1) * (0.45 + rng() * 0.45);
+        rgb = mixRgb(rgb, foamRgb, f);
+        foaming = f > 0.55;
+      }
+      const col = rgbToCss(rgb);
+      // Breaking water scatters light rather than reflecting the sky, so foam
+      // is emitted unlit — otherwise a storm's low exposure crushes every
+      // whitecap to the same grey as the swell it is breaking off.
+      const o = foaming ? { unlit: true } : undefined;
+      addFace(m, [a, b, c], col, o);
+      addFace(m, [a, c, d], col, o);
     }
   }
   return m;
@@ -421,6 +441,33 @@ function drawClouds(ctx, w, h, clouds, color) {
   ctx.restore();
 }
 
+// Rain, drawn in screen space over the finished frame. Streaks thin and fade
+// toward the top of the shot so the weather reads as depth rather than as a
+// flat texture pasted on the lens.
+function drawRain(ctx, w, h, rain) {
+  const rng = seededRandom(rain.seed || 21);
+  const count = rain.density || 200;
+  const angle = rain.angle == null ? 0.4 : rain.angle;
+  const dx = Math.sin(angle), dy = Math.cos(angle);
+  ctx.save();
+  ctx.strokeStyle = rain.color || '#e8f1f6';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const x = rng() * w * 1.3 - w * 0.15;
+    const y = rng() * h;
+    const depth = 0.35 + rng() * 0.65;
+    const len = (rain.length || 26) * depth;
+    ctx.globalAlpha = (rain.alpha == null ? 0.2 : rain.alpha) * depth * (0.45 + 0.55 * (y / h));
+    ctx.lineWidth = 0.7 + depth * 0.9;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + dx * len, y + dy * len);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
 function renderScene(canvas, scene) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const rect = canvas.getBoundingClientRect();
@@ -493,11 +540,12 @@ function renderScene(canvas, scene) {
       const hemi = 0.5 + 0.5 * nn[1];
       const ambientRgb = mixRgb(groundFill, skyFill, hemi);
       const col = hexToRgb(f.color.charCodeAt(0) === 114 ? rgbCssToHex(f.color) : f.color);
-      const lit = [
+      const litFull = [
         col[0] * (ambientRgb[0] / 255 * ambient + sunColor[0] / 255 * strength * lambert),
         col[1] * (ambientRgb[1] / 255 * ambient + sunColor[1] / 255 * strength * lambert),
         col[2] * (ambientRgb[2] / 255 * ambient + sunColor[2] / 255 * strength * lambert),
       ];
+      const lit = f.unlit ? mixRgb(litFull, col, 0.55) : litFull;
       const fogT = smoothstep(scene.fog.start, scene.fog.end, depth);
       let final = mixRgb(lit, haze, fogT);
       if (f.jitter) {
@@ -540,6 +588,8 @@ function renderScene(canvas, scene) {
     }
   }
   ctx.globalAlpha = 1;
+
+  if (scene.rain) drawRain(ctx, w, h, scene.rain);
 }
 
 function rgbCssToHex(css) {

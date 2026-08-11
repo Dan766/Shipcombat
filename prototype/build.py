@@ -10,10 +10,11 @@ PARTS = {
     '__LOWPOLY3D_JS__': BASE / 'lowpoly3d.js',
     '__SHIPS_JS__': BASE / 'ships.js',
     '__SHIPCLASSES_JS__': BASE / 'shipclasses.js',
+    '__WEATHER_JS__': BASE / 'weather.js',
     '__SCENES_JS__': BASE / 'scenes.js',
 }
 
-for name in ('moodboard', 'hud', 'classes'):
+for name in ('moodboard', 'hud', 'classes', 'weather'):
     src = BASE / (name + '.src.html')
     if not src.exists():
         continue

@@ -6,6 +6,7 @@ _Living document. This is the starting point for requirements — expect it to c
 - [Art Direction](https://claude.ai/code/artifact/7b0e04e4-4b83-4dff-acde-76258c5c2249) — key art, range tests, palette, and construction rules. Rendered live in 3D.
 - [Combat HUD](https://claude.ai/code/artifact/3b0a7c9f-8096-49cf-9254-5d7af34e307d) — in-combat screen over the actual third-person camera framing.
 - [Ship Classes](https://claude.ai/code/artifact/a8cf2458-6788-4f9a-bf19-f927bc6f50d3) — the four-class roster at true relative scale, with stats and a silhouette readability test.
+- [Weather](https://claude.ai/code/artifact/c1bf5d5a-2a5a-4e57-a3f6-4d2758fa89c3) — five sea states, the same shot under each, with their gameplay effects.
 
 ## Overview
 
@@ -47,7 +48,9 @@ able to fill either role.
   (Black Flag-style), following the ship's heading.
 - **Sailing**: heading/throttle control, with sail trim and speed affected
   by wind direction (upwind = slower, downwind = faster) — wind becomes a
-  tactical element rather than just an aesthetic detail.
+  tactical element rather than just an aesthetic detail. Wind *strength*
+  varies by weather (see Weather below), so the same heading is worth
+  different speed in different conditions.
 - **Combat**: broadside cannons fired left/right when an enemy is in arc;
   reload timers per side.
 - **Stretch mechanics** (not committed, for later refinement):
@@ -145,6 +148,36 @@ silhouette test in the Ship Classes mockup.
 Definitions live in `prototype/shipclasses.js` — geometry and stats in one
 table, so the renders can't drift from the numbers printed beside them.
 
+## Weather
+
+Five sea states. Weather is meant to change what you can *do*, not just what
+you can see — wave height drives gunnery accuracy, wind strength drives
+speed, and visibility decides how late you spot anyone.
+
+| Condition | Sea | Wave | Wind | Visibility | Effect |
+| --- | --- | --- | --- | --- | --- |
+| Clear | Glassy | 0.3 | Light | 100% | Best gunnery, worst sailing |
+| Fair | Moderate | 1.1 | Steady | 90% | The baseline |
+| Squall | Choppy | 2.0 | Strong, gusting | 55% | Faster, much less accurate |
+| Storm | Heavy | 3.1 | Gale | 30% | Knife-range fights only |
+| Fog | Slight | 0.5 | Light | 15% | Ambush; gunnery fine, finding targets is not |
+
+Wave figures are the renderer's relative amplitude, not metres.
+
+**Fog is deliberately the odd one out.** Every other state moves along the
+same rough-to-calm axis; fog pairs flat water with almost no sight line, so
+it rewards ambush and punishes big slow silhouettes. It is the one condition
+where a Sloop is favoured against a Galleon, and the one where the minimap
+matters more than the screen.
+
+Weather ties into two systems already designed: the HUD's wind indicator
+becomes more than flavour once wind strength varies by condition, and the
+target readout's range figure only matters once visibility can cut it.
+
+Presets live in `prototype/weather.js` — sky, light rig, fog range, sea
+state and rain are all data, so a condition is a table entry rather than
+code.
+
 ## Progression / Meta (placeholder)
 
 Not yet designed. Candidate ideas to revisit later: cosmetic customization
@@ -161,6 +194,13 @@ differ only in numbers and silhouette.
       classes on linear tiers (see Ship Classes above).
 - [ ] Whether the Sloop's turn advantage is actually enough to survive a
       Galleon broadside at close range. Needs playtesting, not a table.
+- [ ] Whether weather is fixed for a match or shifts during one. Fixed is
+      easier to balance and lets players pick a ship against known
+      conditions; shifting is more dramatic but makes ship choice a gamble.
+      A middle option: fix it at match start, then telegraph one scheduled
+      change everyone can see coming.
+- [ ] Whether weather is matchmade (players opt into conditions) or rolled
+      per match.
 - [ ] Target session length for a PvP match.
 - [x] ~~Overall art tone~~ — resolved: bright daylight stylized low-poly
       (see Art Direction above).

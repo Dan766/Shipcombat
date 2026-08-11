@@ -13,17 +13,19 @@ and reviewable rather than described in prose, and so the lighting values in
 | `lowpoly3d.js` | The renderer: perspective camera, mesh primitives, flat shading, distance haze, painter's-algorithm sorting |
 | `ships.js` | Ship, island and prop assembly built from those primitives |
 | `shipclasses.js` | The class roster — geometry and stats in one table, plus `buildClassShip()` |
+| `weather.js` | Weather presets — sky, light rig, fog range, sea state and rain per condition |
 | `scenes.js` | Shared palette + light rig, and every scene used in the mockups |
 | `moodboard.src.html` | Art direction page (source, before font inlining) |
 | `hud.src.html` | Combat HUD page (source, before font inlining) |
 | `classes.src.html` | Ship classes page (source, before font inlining) |
+| `weather.src.html` | Weather page (source, before font inlining) |
 | `build.py` | Inlines fonts and the JS above into standalone `.html` files |
 | `make-fonts.sh` | Downloads and subsets the webfonts into `../fonts/fontfaces.css` |
 
 Load order matters and is fixed by the token order in each `.src.html`:
-`lowpoly3d.js` → `ships.js` → `shipclasses.js` → `scenes.js`. `ships.js` is
-deliberately free of any dependency on the class table, so the renderer and
-the roster data stay separable.
+`lowpoly3d.js` → `ships.js` → `shipclasses.js` → `weather.js` → `scenes.js`.
+`ships.js` is deliberately free of any dependency on the class table, so the
+renderer and the data tables stay separable.
 
 ## Building the pages
 
@@ -32,7 +34,7 @@ gitignored. From a fresh clone:
 
 ```
 bash prototype/make-fonts.sh   # writes ../fonts/fontfaces.css (needs fonttools + brotli)
-python3 prototype/build.py     # writes moodboard.html, hud.html, classes.html
+python3 prototype/build.py     # writes moodboard.html, hud.html, classes.html, weather.html
 ```
 
 Fonts are subsetted to the glyphs the pages actually use — the full TTFs are
@@ -62,6 +64,26 @@ The renderer is deliberately structured around concepts that port directly:
 
 The scene definitions in `scenes.js` (camera framing, ship placement, palette)
 are the reference the Babylon scenes should match.
+
+## Sea state and foam
+
+Whitecaps are driven by facet height: any ocean facet riding above a
+threshold breaks into foam. Two details make it work rather than look like
+floating ice.
+
+Foam is rendered mostly **unlit** — breaking water scatters light instead of
+reflecting the sky, so under a storm's low exposure a normally-shaded
+whitecap would come out the same grey as the swell it broke off.
+
+The thresholds are set from the **measured** height distribution rather than
+guessed: per-cell average heights near the camera top out around 0.83 / 1.48
+/ 2.35 for fair / squall / storm, so thresholds are placed to foam roughly
+the top 5% / 10% / 18% of crests. Guessed values sat above the maximum and
+produced no foam at all.
+
+Oversized facets are skipped (`foamMaxCell`), and each weather's ocean sheet
+is sized to its own fog distance — there is no point spending grid
+resolution on water the haze has already swallowed.
 
 ## A note on viewing angles
 

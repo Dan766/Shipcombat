@@ -1,0 +1,287 @@
+<title>Ship Combat — Weather</title>
+<style>
+__FONTFACES__
+
+/* Single-theme by intent — matches the art direction board. */
+:root {
+  --void: #0d1418;
+  --panel: #141d23;
+  --panel-2: #111a1f;
+  --panel-border: rgba(226, 168, 79, 0.2);
+  --hairline: rgba(233, 241, 240, 0.1);
+  --ink: #eef3f4;
+  --ink-muted: #9aabb0;
+  --ink-faint: #6a7d82;
+  --brass: #e2a84f;
+  --brass-soft: rgba(226, 168, 79, 0.12);
+
+  --font-display: 'Fraunces', Georgia, 'Iowan Old Style', serif;
+  --font-body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body { padding: 56px 32px 80px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  font-weight: 500;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  line-height: 1.06;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+.dek {
+  font-size: 1.03rem;
+  line-height: 1.62;
+  color: var(--ink-muted);
+  max-width: 66ch;
+  margin: 0;
+}
+
+.meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.meta-row b { color: var(--ink-muted); font-weight: 500; }
+
+/* --- weather rows --- */
+
+.states { margin-top: 42px; display: flex; flex-direction: column; gap: 22px; }
+
+.state {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+@media (max-width: 820px) { .state { grid-template-columns: 1fr; } }
+
+.state-canvas-wrap { width: 100%; aspect-ratio: 16 / 9; background: #8bbfe9; }
+.state-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+
+.state-body {
+  padding: 20px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+
+.state-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.state-name { font-family: var(--font-display); font-weight: 600; font-size: 1.36rem; margin: 0; }
+.state-vis {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--brass);
+  font-variant-numeric: tabular-nums;
+}
+.state-summary { font-size: 0.94rem; line-height: 1.55; color: var(--ink); margin: 0; }
+.state-effect { font-size: 0.88rem; line-height: 1.55; color: var(--ink-muted); margin: 0; }
+
+.state-specs {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.71rem;
+  color: var(--ink-faint);
+}
+.state-specs b { color: var(--ink); font-weight: 500; }
+
+/* --- comparison table --- */
+
+section { margin-top: 52px; }
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.section-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.42rem; margin: 0; }
+.section-head .note { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); }
+
+.table-scroll { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  min-width: 620px;
+}
+th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--hairline); }
+th {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+td { color: var(--ink-muted); }
+td:first-child { color: var(--ink); font-weight: 600; }
+td.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+.wave-bar { display: flex; align-items: center; gap: 8px; }
+.wave-bar i {
+  display: block;
+  height: 6px;
+  border-radius: 2px;
+  background: var(--brass);
+  opacity: 0.85;
+}
+
+.callout {
+  margin-top: 40px;
+  border-left: 2px solid var(--brass);
+  background: var(--brass-soft);
+  padding: 18px 24px;
+  border-radius: 0 3px 3px 0;
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.callout .tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  flex-shrink: 0;
+}
+.callout p { margin: 0; font-size: 0.93rem; line-height: 1.56; color: var(--ink); max-width: 66ch; }
+.callout code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brass); }
+
+footer {
+  margin-top: 48px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Ship Combat — Conditions</div>
+  <h1>Weather</h1>
+  <p class="dek">Five sea states, from glassy to gale. Every shot below is the same brig, the same camera and
+    the same seed — only the weather changes, so any difference you can see is the weather and nothing else.
+    Wave height drives gunnery, wind drives speed, and visibility decides how late you see anyone coming.</p>
+  <div class="meta-row">
+    <span><b>Status</b> Conditions v0.1</span>
+    <span><b>States</b> 5</span>
+    <span><b>Companion doc</b> GAME_DESIGN.md</span>
+  </div>
+
+  <div class="states" id="states"></div>
+
+  <section>
+    <div class="section-head">
+      <h2>At a Glance</h2>
+      <span class="note">wave height is relative, not metres</span>
+    </div>
+    <div class="table-scroll">
+      <table id="wx-table">
+        <thead>
+          <tr><th>Condition</th><th>Sea</th><th>Wave height</th><th>Wind</th><th>Visibility</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="callout">
+    <span class="tag">Open</span>
+    <p>Undecided: whether weather is fixed for a match or shifts during one. Fixed is simpler to balance and
+      lets players pick a ship against known conditions; shifting is more dramatic and makes the Sloop's early
+      lead genuinely fragile. A middle option is to fix the state at match start but telegraph one change —
+      a squall rolling in on a timer everyone can see. Tracked in <code>GAME_DESIGN.md</code>.</p>
+  </div>
+
+  <footer>Conditions v0.1 — sky, light rig, fog range, sea state and rain are all preset data
+    (<code>prototype/weather.js</code>). Foam thresholds are set from the measured wave-height distribution, so
+    whitecaps cover a comparable share of the surface as the sea builds.</footer>
+</div>
+
+<script>
+__LOWPOLY3D_JS__
+</script>
+<script>
+__SHIPS_JS__
+</script>
+<script>
+__SHIPCLASSES_JS__
+</script>
+<script>
+__WEATHER_JS__
+</script>
+<script>
+__SCENES_JS__
+</script>
+<script>
+document.getElementById('states').innerHTML = WEATHER_ORDER.map(function (id) {
+  const w = WEATHER[id];
+  return '' +
+    '<div class="state">' +
+      '<div class="state-canvas-wrap"><canvas id="wx-' + id + '"></canvas></div>' +
+      '<div class="state-body">' +
+        '<div class="state-head"><h3 class="state-name">' + w.name + '</h3>' +
+          '<span class="state-vis">VIS ' + w.visibility + '</span></div>' +
+        '<p class="state-summary">' + w.summary + '</p>' +
+        '<p class="state-effect">' + w.effect + '</p>' +
+        '<div class="state-specs">' +
+          '<span>Sea <b>' + w.sea + '</b></span>' +
+          '<span>Wind <b>' + w.wind + '</b></span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+}).join('');
+
+// Wave-height bars are drawn from the same `amp` the ocean mesh is built with,
+// so the table cannot drift from the renders above it.
+const maxAmp = Math.max.apply(null, WEATHER_ORDER.map(function (id) { return WEATHER[id].ocean.amp; }));
+document.querySelector('#wx-table tbody').innerHTML = WEATHER_ORDER.map(function (id) {
+  const w = WEATHER[id];
+  const pct = Math.round((w.ocean.amp / maxAmp) * 100);
+  return '<tr>' +
+    '<td>' + w.name + '</td>' +
+    '<td>' + w.sea + '</td>' +
+    '<td><span class="wave-bar"><i style="width:' + pct + '%"></i></span></td>' +
+    '<td>' + w.wind + '</td>' +
+    '<td class="num">' + w.visibility + '</td>' +
+    '</tr>';
+}).join('');
+
+WEATHER_ORDER.forEach(function (id) {
+  mountScene('wx-' + id, function () { return sceneWeather(id); });
+});
+</script>

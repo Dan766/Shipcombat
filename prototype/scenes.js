@@ -57,21 +57,51 @@ function oceanMesh(cells, amp, seed) {
   return { mesh: makeOcean({ halfSize: 420, cells: cells || 34, color: SEA.deep, crest: SEA.crest, seed: seed || 12, amp: amp == null ? 1.1 : amp }) };
 }
 
+// Ocean built to a weather preset's sea state rather than the default one.
+function weatherOcean(w, cells, seed) {
+  // Size the sheet to what the weather actually lets you see. In a storm the
+  // haze closes in at 150m, so a 420m sheet spends most of its resolution on
+  // water nobody can see — shrinking it puts finer facets where they show.
+  const reach = Math.min(420, Math.max(80, w.fog.end * 1.25));
+  return {
+    mesh: makeOcean({
+      halfSize: reach, cells: cells || 32, seed: seed || 12,
+      color: w.ocean.deep, crest: w.ocean.crest, amp: w.ocean.amp,
+      foamStart: w.ocean.foamStart == null ? null : w.ocean.foamStart * w.ocean.amp,
+    }),
+  };
+}
+
+// A scene lit and dressed entirely by a weather preset.
+function weatherScene(w, camera, meshes) {
+  return {
+    sky: w.sky,
+    clouds: w.clouds,
+    camera: camera,
+    sun: w.sun,
+    fog: w.fog,
+    rain: w.rain,
+    meshes: meshes,
+  };
+}
+
 /* Hero: a single ship under sail with islands hazing out behind it. */
 function sceneHero() {
   const m = [oceanMesh(38, 1.1, 12)];
   m.push.apply(m, buildIsland({ pos: [-78, -1, 130], r: 30, h: 13, trees: 5, seed: 9 }));
   m.push.apply(m, buildIsland({ pos: [120, -1, 200], r: 38, h: 17, trees: 5, seed: 21 }));
-  m.push.apply(m, buildShip({ pos: [6, -1.45, 24], rotY: 1.45, heel: 0.06, scale: 1.15, palette: PLAYER_SHIP, seed: 4 }));
-  return baseScene({ eye: [-19, 11, -5], target: [5, 4.2, 26], fov: 50 }, m);
+  m.push.apply(m, buildClassShip('brig', { pos: [6, null, 24], rotY: 1.45, heel: 0.06, palette: PLAYER_SHIP, seed: 4 }));
+  return baseScene({ eye: [-21, 11.5, -6], target: [5, 5.4, 26], fov: 50 }, m);
 }
 
 /* Range test A: two ships trading position in open water. */
 function sceneChase() {
   const m = [oceanMesh(30, 1.2, 31)];
   m.push.apply(m, buildIsland({ pos: [150, -1, 250], r: 42, h: 19, trees: 4, seed: 33 }));
-  m.push.apply(m, buildShip({ pos: [-6, -1.45, 20], rotY: 1.25, heel: 0.1, scale: 1.05, palette: PLAYER_SHIP, seed: 4 }));
-  m.push.apply(m, buildShip({ pos: [52, -1.45, 46], rotY: 2.6, heel: -0.05, scale: 1.0, palette: ENEMY_SHIP, seed: 7 }));
+  // Sloop against Frigate: the readability claim in the caption is only
+  // worth making if the two ships are genuinely different classes.
+  m.push.apply(m, buildClassShip('sloop', { pos: [-6, null, 20], rotY: 1.25, heel: 0.1, palette: PLAYER_SHIP, seed: 4 }));
+  m.push.apply(m, buildClassShip('frigate', { pos: [54, null, 48], rotY: 2.6, heel: -0.05, palette: ENEMY_SHIP, seed: 7 }));
   return baseScene({ eye: [-24, 13, -8], target: [16, 4.2, 28], fov: 54 }, m);
 }
 
@@ -80,8 +110,8 @@ function sceneIsland() {
   const m = [oceanMesh(30, 0.7, 55)];
   m.push.apply(m, buildIsland({ pos: [-46, -1, 74], r: 28, h: 15, trees: 8, seed: 44 }));
   m.push.apply(m, buildIsland({ pos: [100, -1, 165], r: 34, h: 15, trees: 4, seed: 12 }));
-  m.push.apply(m, buildShip({ pos: [6, -1.45, 26], rotY: 1.4, heel: 0.03, scale: 1.15, palette: ALLY_SHIP, seed: 9 }));
-  return baseScene({ eye: [-20, 10, -2], target: [6, 3.8, 28], fov: 52 }, m);
+  m.push.apply(m, buildClassShip('galleon', { pos: [8, null, 30], rotY: 1.4, heel: 0.03, palette: ALLY_SHIP, seed: 9 }));
+  return baseScene({ eye: [-24, 13, -4], target: [7, 7.5, 31], fov: 52 }, m);
 }
 
 /* The in-combat view: camera behind and above the player's ship, enemy off
@@ -210,6 +240,24 @@ function sceneClassSilhouette(classId) {
   // Flat ambient only — a silhouette should carry no shading information.
   scene.sun = { dir: [0, 1, 0], color: '#000000', skyFill: '#ffffff', groundFill: '#ffffff', ambient: 1, strength: 0, wrap: 1 };
   return scene;
+}
+
+/* --- weather scenes --- */
+
+// The identical shot under each weather preset: same camera, same brig, same
+// seed. Only the atmosphere and the sea state change, so any difference you
+// see between these is the weather and nothing else.
+function sceneWeather(weatherId) {
+  const w = WEATHER[weatherId];
+  const m = [weatherOcean(w, 40, 64)];
+  // Land is included so the visibility difference has something to act on —
+  // in fog these vanish completely, which is the whole point of the state.
+  m.push.apply(m, buildIsland({ pos: [-64, -1, 108], r: 28, h: 14, trees: 6, seed: 9 }));
+  m.push.apply(m, buildIsland({ pos: [96, -1, 168], r: 34, h: 16, trees: 4, seed: 21 }));
+  m.push.apply(m, buildClassShip('brig', {
+    pos: [4, null, 24], rotY: 1.42, heel: w.heel, palette: PLAYER_SHIP, seed: 4,
+  }));
+  return weatherScene(w, { eye: [-21, 10.5, -4], target: [4, 5.2, 26], fov: 52 }, m);
 }
 
 /* Render helper: draws once, and re-draws on resize (debounced). Static by
