@@ -1,17 +1,30 @@
 # Ship Combat — playable slice
 
-A Babylon.js build you can sail. Sailing only: no cannons, no damage, no
-sinking. It exists to answer questions that mockups cannot — how the sailing
-model feels, and whether the art direction survives contact with a real
-engine.
+A Babylon.js build you can sail and fight in. It exists to answer questions
+mockups cannot — how the sailing and gunnery models feel, and whether the art
+direction survives contact with a real engine.
 
 ```
 npm install
 npm run dev          # http://127.0.0.1:5173
 ```
 
-**Controls** — `A`/`D` steer · `W`/`S` sail trim · `C` cycle class ·
-`1`–`5` weather · `V` cycle simulated latency.
+**Controls**
+
+| | |
+| --- | --- |
+| `A` / `D` | Steer |
+| `W` / `S` | Sail trim |
+| `Q` / `E` | Fire port / starboard broadside |
+| `R` | Toggle round / chain shot |
+| wheel, `[` `]` | Aim range (25–250 m) |
+| `C` | Cycle ship class |
+| `1`–`5` | Weather |
+| `V` | Cycle simulated latency |
+
+Guns are fixed broadside batteries. You cannot aim them across the bow — the
+reticle sets *range*, and bearing comes from steering the ship. A target dead
+ahead cannot be shot at all.
 
 ## The one architectural rule
 
@@ -46,6 +59,20 @@ Swapping in a real server means writing a `WebSocketTransport` that satisfies
 the same interface. Nothing in `src/render` or `src/input` should need to
 change.
 
+### Firing and latency
+
+Pressing fire plays the muzzle flash and smoke **immediately**, while the
+authoritative volley arrives ~160 ms later and is what actually flies. There
+is deliberately no predicted cannonball: a fake ball that then diverges from
+the server's is more jarring than the delay it hides, and almost all of the
+perceptual win is in the flash answering the keypress.
+
+Fire orders are edge-triggered and survive command coalescing. Whenever the
+client's command rate outruns the tick rate — any time framerate drops below
+30 fps — several commands land between two ticks, and naively keeping only the
+newest silently swallows the shot. `World.applyCommand` merges instead, taking
+the newest steering but preserving a pending fire.
+
 ### What is deliberately not done yet
 
 - **Client-side prediction and reconciliation.** The client renders the
@@ -57,22 +84,41 @@ change.
   rebuilding ~70k vertices per frame in JS, which would measure the cost of
   vertex updates rather than the cost of the art direction. It belongs in a
   vertex shader.
-- **Bots with real AI.** The second ship steers a constant turn. It exists so
-  the snapshot path carries more than one entity.
+- **Grape shot and a crew damage track.** Two ammo types are in; grape needs
+  a crew system to act on first.
+- **Boarding and ramming.** No collision between hulls at all yet — ships
+  pass through each other.
+- **More than one opponent, and matchmaking.**
+- **A minimap**, which the HUD mockup specifies but nothing populates yet.
 
 ## Verification
 
 ```
-npm run verify        # typecheck + layering + determinism (no browser needed)
+npm run verify        # typecheck + layering + determinism + combat (no browser)
 npm run dev           # in one shell
 npm run verify:render # in another — drives a real browser over CDP
 ```
 
+`npm run verify` is the no-browser gate: typecheck, layering, determinism and
+combat behaviour.
+
+`test:combat` asserts the things that would otherwise only surface by playing
+— shots land where they are aimed, a target dead ahead cannot be hit, chain
+shot wrecks rigging while round shot sinks hulls, rigging damage measurably
+slows a ship, hulls sink and respawn, fire orders survive command coalescing,
+and the AI actually lands hits rather than merely firing.
+
+`test:determinism` replays a 60-second **duel** — with volleys, hits and a
+sinking — and compares state hashes. Projectiles and reload timers are exactly
+the state that drifts, so the fight is what gets hashed, and the check fails if
+the duel was vacuous.
+
 `verify:render` reports frame time per weather state, confirms every class
 builds, checks that ships travel along their heading (a rotation sign error
-reads as a ship gliding backwards, which is easy to miss from astern), and
-measures interpolation smoothness at 0 / 80 / 150 ms latency. Pass
-`--shots <dir>` to write screenshots.
+reads as a ship gliding backwards, which is easy to miss from astern),
+measures interpolation smoothness at 0 / 80 / 150 ms, and fires broadsides to
+confirm projectiles reach the screen. Pass `--shots <dir>` to write
+screenshots.
 
 **On the framerate numbers:** in a container this runs on SwiftShader, a
 software rasteriser, where the scene measures ~9–13 fps. That is a floor, not

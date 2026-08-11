@@ -48,6 +48,18 @@ export interface SailDef {
   accel: number;
 }
 
+/** Gunnery and durability. Starting points for tuning, not balance claims. */
+export interface CombatDef {
+  /** Guns on each side; a volley fires all of them. */
+  gunsPerSide: number;
+  /** Seconds to reload one side. */
+  reloadSec: number;
+  /** Hull hit points. */
+  hullHp: number;
+  /** Rigging hit points. */
+  rigHp: number;
+}
+
 export interface ShipClass {
   id: ShipClassId;
   name: string;
@@ -59,6 +71,7 @@ export interface ShipClass {
   guns: number;
   stats: { speed: number; turn: number; hull: number; broadside: number };
   sail: SailDef;
+  combat: CombatDef;
   geo: HullGeo;
 }
 
@@ -75,6 +88,7 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 8,
     stats: { speed: 5, turn: 5, hull: 2, broadside: 2 },
     sail: { baseSpeed: 9.0, turnRate: 45, accel: 2.6 },
+    combat: { gunsPerSide: 4, reloadSec: 4.5, hullHp: 90, rigHp: 60 },
     geo: {
       len: 16, beam: 4.1, depth: 2.5, draft: 1.15, gunPorts: 4, mastH: 15.4,
       sterncastle: { decks: 1, height: 0.5 },
@@ -93,6 +107,7 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 16,
     stats: { speed: 4, turn: 4, hull: 3, broadside: 3 },
     sail: { baseSpeed: 8.0, turnRate: 34, accel: 2.0 },
+    combat: { gunsPerSide: 8, reloadSec: 5.5, hullHp: 150, rigHp: 95 },
     geo: {
       len: 21, beam: 6.0, depth: 3.1, draft: 1.5, gunPorts: 8, mastH: 16.5,
       sterncastle: { decks: 2, height: 0.58 },
@@ -114,6 +129,7 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 28,
     stats: { speed: 3, turn: 3, hull: 4, broadside: 4 },
     sail: { baseSpeed: 7.0, turnRate: 25, accel: 1.5 },
+    combat: { gunsPerSide: 14, reloadSec: 7.0, hullHp: 230, rigHp: 140 },
     geo: {
       len: 27, beam: 7.4, depth: 3.8, draft: 1.8, gunPorts: 14, forecastle: true, mastH: 24.5,
       sterncastle: { decks: 2, height: 0.62 },
@@ -136,6 +152,7 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 44,
     stats: { speed: 2, turn: 1, hull: 5, broadside: 5 },
     sail: { baseSpeed: 5.5, turnRate: 16, accel: 1.0 },
+    combat: { gunsPerSide: 22, reloadSec: 9.0, hullHp: 340, rigHp: 200 },
     geo: {
       len: 34, beam: 11.0, depth: 5.6, draft: 2.4, gunPorts: 22, gunDecks: 2,
       forecastle: true, beakhead: true, mastH: 27,

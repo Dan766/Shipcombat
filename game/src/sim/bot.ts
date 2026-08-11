@@ -1,0 +1,88 @@
+/* Enemy AI.
+ *
+ * Emits Commands through exactly the same path a player does — it has no
+ * privileged access to the world, which keeps it honest and means anything it
+ * can do, a player could. Fully deterministic: no Math.random, no clock reads.
+ *
+ * The behaviour is deliberately simple but not passive: close to a preferred
+ * range, then turn to keep the enemy on the beam, because that is where the
+ * guns point. That alone produces recognisable circling duels.
+ *
+ * MUST NOT import Babylon.
+ */
+
+import { MAX_RANGE, MIN_RANGE } from './ballistics.ts';
+import type { Command, ShipState } from './types.ts';
+import { normalizeAngle } from './wind.ts';
+
+/** Range the bot tries to hold, in metres. Inside its guns, outside a ram. */
+const PREFERRED_RANGE = 130;
+/** How far off the beam a target may be before the bot will fire. */
+const FIRE_ARC = 0.42; // ~24 degrees
+
+export interface BotMemory {
+  seq: number;
+  /** Which way it circles. Flipped only when it needs to disengage. */
+  circleDir: 1 | -1;
+}
+
+export function newBotMemory(): BotMemory {
+  return { seq: 0, circleDir: 1 };
+}
+
+export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory): Command {
+  const idle: Command = { seq: mem.seq++, turn: 0, sail: 1, fire: 0, aimRange: PREFERRED_RANGE, ammo: 'round' };
+  if (!target || target.sinking > 0 || self.sinking > 0) return idle;
+
+  const dx = target.x - self.x;
+  const dz = target.z - self.z;
+  const range = Math.hypot(dx, dz);
+  const bearing = Math.atan2(dx, dz);
+  const relative = normalizeAngle(bearing - self.heading);
+
+  // Steer toward a heading that puts the target on the beam at the range we
+  // want. Too far: cut the angle inward. Too close: open it out.
+  const closing = range > PREFERRED_RANGE * 1.15 ? -0.55
+    : range < PREFERRED_RANGE * 0.7 ? 0.55
+      : 0;
+  const wantOffset = (Math.PI / 2 + closing) * mem.circleDir;
+  const desired = normalizeAngle(bearing - wantOffset);
+  const error = normalizeAngle(desired - self.heading);
+
+  const turn = Math.max(-1, Math.min(1, error * 2.2));
+
+  // Fire when the target sits near the beam on either side and is in range.
+  const offBeam = Math.abs(Math.abs(relative) - Math.PI / 2);
+  const inArc = offBeam < FIRE_ARC;
+  const side: -1 | 1 = relative < 0 ? -1 : 1;
+  const ready = side < 0 ? self.reloadPort >= 1 : self.reloadStbd >= 1;
+  const inRange = range > MIN_RANGE && range < MAX_RANGE * 0.85;
+
+  // Chain shot at a healthy runner, round shot at anything already hurt or
+  // close enough to finish.
+  const useChain = target.rig > 0.55 && range > PREFERRED_RANGE;
+
+  return {
+    seq: mem.seq++,
+    turn,
+    sail: 1,
+    fire: inArc && ready && inRange ? side : 0,
+    aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
+    ammo: useChain ? 'chain' : 'round',
+  };
+}
+
+/** Bearing helper the HUD also wants, kept here next to the AI that uses it. */
+export function bearingTo(from: ShipState, to: ShipState): number {
+  return Math.atan2(to.x - from.x, to.z - from.z);
+}
+
+/** Which broadside, if any, a target is currently under. */
+export function firingSide(self: ShipState, to: ShipState): -1 | 1 | 0 {
+  const relative = normalizeAngle(bearingTo(self, to) - self.heading);
+  const offBeam = Math.abs(Math.abs(relative) - Math.PI / 2);
+  if (offBeam > FIRE_ARC) return 0;
+  return relative < 0 ? -1 : 1;
+}
+
+export { PREFERRED_RANGE, FIRE_ARC };

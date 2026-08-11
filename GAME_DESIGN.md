@@ -65,10 +65,39 @@ able to fill either role.
 1. Maneuver for a broadside firing angle while accounting for wind.
 2. Trade cannon volleys; damage is tracked across separate systems:
    - **Hull integrity** — the main "health bar"; zero hull = sinking.
-   - **Sail/rigging condition** — affects top speed and maneuverability.
-   - (Stretch) **Crew** — affects reload speed / boarding viability.
+   - **Rigging condition** — scales speed and turn rate by
+     `0.35 + 0.65 x rig`, so a shredded ship still drifts but cannot run.
+   - (Deferred) **Crew** — would affect reload speed and boarding.
 3. Reposition, reload, repeat — or disengage if outmatched.
 4. Sinking triggers a respawn (PvP) or defeat/loot state (PvE).
+
+### Gunnery
+
+Guns are **fixed broadside batteries**. They cannot be swung — you turn the
+ship. The only thing the gunner controls is elevation, which sets range, and
+that is deliberately the whole point: a duel is decided by steering, not by
+mouse aim. A target dead ahead simply cannot be shot.
+
+- Muzzle velocity **65 m/s** under 9.81 gravity; elevation is the low-angle
+  solution of `R = v² sin(2θ)/g`. Effective range capped at **250 m**.
+- A volley fires every gun on the chosen side with a small bearing and range
+  spread, so it lands as a pattern rather than a point.
+- **Round shot** puts everything into the hull. **Chain shot** wrecks rigging
+  and barely scratches timber — it is how you catch something faster than
+  you, and the only reason to load it.
+
+| Class | Guns/side | Reload | Volley (round) | Hull HP | Rig HP |
+| --- | --- | --- | --- | --- | --- |
+| Sloop | 4 | 4.5 s | 12 | 90 | 60 |
+| Brig | 8 | 5.5 s | 24 | 150 | 95 |
+| Frigate | 14 | 7.0 s | 42 | 230 | 140 |
+| Galleon | 22 | 9.0 s | 66 | 340 | 200 |
+
+Damage is 3.0 per ball. **Cross-tier fights are deliberately lopsided**: a
+Galleon sinks a Sloop in about two connecting volleys, while a Sloop needs
+~29 to return the favour. That is the linear-tier model doing what it says on
+the tin — the Sloop's answer is to refuse the trade, not to win it — and
+whether that is *fun* is precisely the thing that needs playtesting.
 
 ## Game Modes
 
@@ -250,7 +279,11 @@ differ only in numbers and silhouette.
 - [x] ~~Ship roster size and differentiation at launch~~ — resolved: four
       classes on linear tiers (see Ship Classes above).
 - [ ] Whether the Sloop's turn advantage is actually enough to survive a
-      Galleon broadside at close range. Needs playtesting, not a table.
+      Galleon broadside at close range. Now playable — the numbers say no,
+      by design; the question is whether that reads as fair or as pointless.
+- [ ] Whether fixed broadsides plus a range-only reticle give enough aiming
+      skill, or whether the guns need some traverse.
+- [ ] Grape shot and a crew damage track — deferred until crew does something.
 - [ ] Whether weather is fixed for a match or shifts during one. Fixed is
       easier to balance and lets players pick a ship against known
       conditions; shifting is more dramatic but makes ship choice a gamble.

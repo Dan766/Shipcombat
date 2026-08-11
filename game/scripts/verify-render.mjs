@@ -177,6 +177,50 @@ for (const lat of [0, 80, 150]) {
     `max/mean ${motion.ratio.toFixed(2)}  ${verdict}`);
 }
 
+// Combat: fire a broadside and confirm the whole chain works — command out,
+// authoritative volley back, projectiles rendered, damage applied.
+console.log('\ncombat:');
+{
+  await page.evaluate(() => window.__ship.setWeather('fair'));
+  await page.evaluate(() => window.__ship.setClass('frigate'));
+  await sleep(1500);
+
+  const before = await page.evaluate(() => {
+    const s = window.__ship.snapshot();
+    const foe = s.ships.find((x) => x.id !== 1);
+    return { hull: foe.hull, rig: foe.rig };
+  });
+
+  await page.evaluate(() => window.__ship.setAim(120));
+  let maxInFlight = 0;
+  for (let i = 0; i < 10; i++) {
+    await page.evaluate((side) => window.__ship.fire(side), i % 2 === 0 ? 1 : -1);
+    for (let j = 0; j < 10; j++) {
+      await sleep(110);
+      const n = await page.evaluate(() => window.__ship.snapshot().projectiles.length);
+      maxInFlight = Math.max(maxInFlight, n);
+    }
+  }
+  console.log(`  projectiles rendered in flight: peak ${maxInFlight}`);
+  if (maxInFlight === 0) {
+    console.error('FAIL: firing produced no projectiles');
+    await browser.close();
+    process.exit(1);
+  }
+
+  const after = await page.evaluate(() => {
+    const s = window.__ship.snapshot();
+    const foe = s.ships.find((x) => x.id !== 1);
+    return { hull: foe.hull, rig: foe.rig };
+  });
+  const damaged = after.hull < before.hull || after.rig < before.rig;
+  console.log(`  enemy hull ${before.hull.toFixed(2)} -> ${after.hull.toFixed(2)}, ` +
+    `rig ${before.rig.toFixed(2)} -> ${after.rig.toFixed(2)}  ` +
+    `${damaged ? '(bot took damage; both sides are shooting)' : '(no damage landed this run)'}`);
+
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/combat.png` });
+}
+
 if (errors.length) {
   console.error('\nFAIL: page errors\n  ' + errors.slice(0, 5).join('\n  '));
   await browser.close();

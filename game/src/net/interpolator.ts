@@ -70,9 +70,19 @@ export class Interpolator {
         heading: sa.heading + normalizeAngle(sb.heading - sa.heading) * t,
         speed: sa.speed + (sb.speed - sa.speed) * t,
         sail: sa.sail + (sb.sail - sa.sail) * t,
+        hull: sa.hull + (sb.hull - sa.hull) * t,
+        rig: sa.rig + (sb.rig - sa.rig) * t,
+        reloadPort: sa.reloadPort + (sb.reloadPort - sa.reloadPort) * t,
+        reloadStbd: sa.reloadStbd + (sb.reloadStbd - sa.reloadStbd) * t,
+        // Discrete: a ship is sinking or it is not, so take the newer truth.
+        sinking: sb.sinking,
       };
     });
 
+    /* Projectiles come from the newer snapshot as-is rather than being
+     * blended: they are created and destroyed constantly, so pairing them up
+     * between snapshots would match unrelated balls to each other. They move
+     * fast enough that a tick of staleness is invisible. */
     return { ...b, ships };
   }
 }

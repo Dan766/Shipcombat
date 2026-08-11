@@ -10,19 +10,67 @@
   #view, #overlay { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
   #overlay { pointer-events: none; }
   #hud {
-    position: absolute; left: 18px; top: 18px; z-index: 2;
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    font: 13px/1.5 -apple-system, "Segoe UI", sans-serif; color: #eef3f4;
+  }
+  #hud .panel {
+    position: absolute;
     background: rgba(10, 20, 26, 0.62);
     border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 3px; padding: 12px 14px; min-width: 232px;
-    font: 13px/1.5 -apple-system, "Segoe UI", sans-serif;
-    color: #eef3f4; pointer-events: none;
+    border-radius: 3px; padding: 11px 14px;
   }
-  #hud .row { display: flex; justify-content: space-between; gap: 16px; }
-  #hud .row span { color: rgba(255,255,255,0.62); }
+  #hud .target { top: 18px; left: 18px; width: 236px; }
+  #hud .wind { top: 18px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 180px; }
+  #hud .own { bottom: 18px; left: 18px; width: 252px; }
+  #hud .guns { bottom: 18px; left: 50%; transform: translateX(-50%); text-align: center; }
+  #hud .sunk {
+    top: 42%; left: 50%; transform: translate(-50%,-50%);
+    font: 600 26px/1 -apple-system, sans-serif; letter-spacing: 0.18em;
+    color: #e05a3c; border-color: rgba(224,90,60,0.5); padding: 14px 26px;
+  }
+  #hud .lbl {
+    font: 500 10px/1.4 ui-monospace, monospace; letter-spacing: 0.11em;
+    text-transform: uppercase; color: rgba(255,255,255,0.58);
+  }
+  #hud .name { font-weight: 600; font-size: 15px; margin-top: 1px; }
+  #hud .name .dim { font-weight: 400; font-size: 11px; color: rgba(255,255,255,0.5); }
+  #hud .sub {
+    margin-top: 7px; font: 11px/1.4 ui-monospace, monospace;
+    color: rgba(255,255,255,0.6);
+  }
+  #hud .sub .bearing { color: #e2a84f; }
+  #hud .bar { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+  #hud .bl {
+    width: 26px; font: 500 9px/1 ui-monospace, monospace;
+    letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.55);
+  }
+  #hud .bt { flex: 1; height: 6px; background: rgba(0,0,0,0.45); border-radius: 2px; overflow: hidden; }
+  #hud .bf { display: block; height: 100%; border-radius: 2px; transition: width .15s linear; }
+  #hud .bv {
+    width: 32px; text-align: right; font: 11px ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  #hud .cols { display: flex; gap: 28px; }
+  #hud .pips { display: flex; gap: 3px; margin-top: 6px; justify-content: center; }
+  #hud .pip {
+    width: 7px; height: 8px; border-radius: 1px;
+    border: 1px solid rgba(226,168,79,0.7);
+  }
+  #hud .pip.on { background: #e2a84f; }
+  #hud .st { margin-top: 5px; font: 11px ui-monospace, monospace; color: rgba(255,255,255,0.55); }
+  #hud .st.rdy { color: #8fe0aa; }
+  #hud .ammo { display: flex; gap: 6px; margin-top: 11px; justify-content: center; align-items: center; }
+  #hud .chip {
+    font: 10px ui-monospace, monospace; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.7);
+  }
+  #hud .chip.on { background: #e2a84f; border-color: #e2a84f; color: #221806; font-weight: 600; }
+  #hud .rangechip { font: 10px ui-monospace, monospace; color: rgba(255,255,255,0.55); margin-left: 4px; }
   #hud .keys {
     margin-top: 9px; padding-top: 8px;
     border-top: 1px solid rgba(255,255,255,0.14);
-    font-size: 11px; color: rgba(255,255,255,0.5);
+    font-size: 10px; color: rgba(255,255,255,0.45);
   }
 </style>
 </head>

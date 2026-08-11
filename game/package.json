@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit",
     "check:layering": "node scripts/check-layering.mjs",
     "test:determinism": "node --experimental-strip-types scripts/determinism.ts",
-    "verify": "npm run typecheck && npm run check:layering && npm run test:determinism",
-    "verify:render": "node scripts/verify-render.mjs"
+    "verify": "npm run typecheck && npm run check:layering && npm run test:determinism && npm run test:combat",
+    "verify:render": "node scripts/verify-render.mjs",
+    "test:combat": "node --experimental-strip-types scripts/combat-tests.ts"
   },
   "dependencies": {
     "@babylonjs/core": "^9.20.0"

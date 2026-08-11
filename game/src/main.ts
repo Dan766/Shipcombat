@@ -13,8 +13,9 @@ import { SHIP_CLASSES, SHIP_CLASS_ORDER, ENEMY_PALETTE, PLAYER_PALETTE, type Shi
 import { WEATHER, WEATHER_ORDER, type WeatherId } from './data/weather.ts';
 import { World } from './sim/world.ts';
 import { TICK_MS, type ShipState } from './sim/types.ts';
-import { angleOffWind, pointOfSailName } from './sim/wind.ts';
+
 import { waveHeight, waveNormal } from './sim/waves.ts';
+import { normalizeAngle } from './sim/wind.ts';
 import { LocalTransport } from './net/local.ts';
 import { Interpolator } from './net/interpolator.ts';
 import { buildOcean } from './render/ocean.ts';
@@ -23,6 +24,8 @@ import { buildShipMesh } from './render/shipMesh.ts';
 import { toBabylonMesh } from './render/toBabylon.ts';
 import { KeyboardInput } from './input/keyboard.ts';
 import { drawRain } from './render/rain.ts';
+import { Effects, makeReticle } from './render/effects.ts';
+import { renderHud } from './render/hud.ts';
 
 const PLAYER_ID = 1;
 const AI_ID = 2;
@@ -44,8 +47,40 @@ const interp = new Interpolator(140);
 transport.onSnapshot((s) => interp.push(s));
 
 /* --- client side --- */
+const effects = new Effects(scene);
+const reticlePort = makeReticle(scene, '#e2a84f');
+const reticleStbd = makeReticle(scene, '#e2a84f');
 const input = new KeyboardInput();
 input.attach(window);
+
+/* Immediate local feedback: the muzzle flash answers the keypress, while the
+ * authoritative volley is still ~160 ms away. Deliberately no predicted
+ * cannonball — a fake ball that then diverges from the server's is more
+ * jarring than the delay it would hide. */
+input.onFirePressed = (side) => {
+  const snap = interp.latest;
+  const me = snap?.ships.find((s) => s.id === PLAYER_ID);
+  if (!me || me.sinking > 0) return;
+  const ready = side < 0 ? me.reloadPort : me.reloadStbd;
+  if (ready < 1) return;
+  spawnMuzzleSmoke(me, side);
+};
+
+function spawnMuzzleSmoke(me: ShipState, side: -1 | 1): void {
+  const geo = SHIP_CLASSES[me.cls].geo;
+  const beam = me.heading + (side * Math.PI) / 2;
+  const amp = WEATHER[weather].ocean.amp;
+  const puffs = Math.min(6, Math.max(3, Math.round(SHIP_CLASSES[me.cls].combat.gunsPerSide / 3)));
+  for (let i = 0; i < puffs; i++) {
+    const t = (i / Math.max(1, puffs - 1) - 0.5) * geo.len * 0.6;
+    effects.spawnPuff(
+      me.x + Math.sin(me.heading) * t + Math.sin(beam) * geo.beam * 0.6,
+      waveHeight(me.x, me.z, amp) + geo.depth - geo.draft + 1.0,
+      me.z + Math.cos(me.heading) * t + Math.cos(beam) * geo.beam * 0.6,
+      2.2, 1.1, 2.4,
+    );
+  }
+}
 
 let weather: WeatherId = 'fair';
 let ocean = buildOcean(WEATHER[weather], scene);
@@ -89,35 +124,67 @@ function syncShip(s: ShipState, amp: number): void {
 
   const geo = SHIP_CLASSES[s.cls].geo;
   const surface = waveHeight(s.x, s.z, amp);
-  node.mesh.position.set(s.x, surface - geo.draft, s.z);
+
+  // A sinking hull settles and rolls over as it goes under.
+  const sinkT = s.sinking > 0 ? 1 - s.sinking / (30 * 5) : 0;
+  const settle = sinkT * (geo.depth + geo.draft + 2);
+
+  node.mesh.position.set(s.x, surface - geo.draft - settle, s.z);
   node.mesh.rotation.y = s.heading;
 
   // Lean with the water rather than staying rigidly level.
   const n = waveNormal(s.x, s.z, amp);
-  node.mesh.rotation.z = Math.asin(Math.max(-1, Math.min(1, n[0]))) * 0.6;
+  node.mesh.rotation.z = Math.asin(Math.max(-1, Math.min(1, n[0]))) * 0.6 + sinkT * 0.9;
   node.mesh.rotation.x = -Math.asin(Math.max(-1, Math.min(1, n[2]))) * 0.6;
 }
 
 /* --- camera: third person, behind and above --- */
 const camPos = new Vector3(0, 12, -30);
-function followCamera(s: ShipState, amp: number, dt: number): void {
+let camYaw = 0;
+
+function followCamera(s: ShipState, target: ShipState | undefined, amp: number, dt: number): void {
   const geo = SHIP_CLASSES[s.cls].geo;
   const back = 1.9 * geo.len;
   const up = 0.5 * geo.len;
   // Slight offset to one quarter rather than dead astern: from directly
   // behind, a ship's own sails hide its rig and its length reads as nothing.
   const side = 0.42 * geo.len;
-  const right = { x: Math.cos(s.heading), z: -Math.sin(s.heading) };
+
+  /* Swing toward whatever is being fought. Broadside guns point abeam, so in
+   * a fight both the enemy and the aiming reticle sit ~90 degrees off the
+   * bow — outside a stern camera's frustum entirely. Without this the reticle
+   * is never on screen when it matters. */
+  let wantYaw = 0;
+  if (target && target.sinking === 0) {
+    const range = Math.hypot(target.x - s.x, target.z - s.z);
+    if (range < 320) {
+      const rel = normalizeAngle(Math.atan2(target.x - s.x, target.z - s.z) - s.heading);
+      const closeness = 1 - Math.min(1, range / 320);
+      wantYaw = Math.max(-0.7, Math.min(0.7, rel)) * 0.30 * (0.35 + 0.65 * closeness);
+    }
+  }
+  camYaw += (wantYaw - camYaw) * Math.min(1, dt * 2.2);
+
+  const view = s.heading + camYaw;
+  const right = { x: Math.cos(view), z: -Math.sin(view) };
   const desired = new Vector3(
-    s.x - Math.sin(s.heading) * back + right.x * side,
+    s.x - Math.sin(view) * back + right.x * side,
     waveHeight(s.x, s.z, amp) + up,
-    s.z - Math.cos(s.heading) * back + right.z * side,
+    s.z - Math.cos(view) * back + right.z * side,
   );
-  // Critically-damped-ish follow so the camera lags the ship a little.
   const k = Math.min(1, dt * 3.5);
   camPos.addInPlace(desired.subtract(camPos).scale(k));
   camera.position.copyFrom(camPos);
-  camera.setTarget(new Vector3(s.x, waveHeight(s.x, s.z, amp) + geo.mastH * 0.22, s.z));
+
+  // Look slightly past the ship toward the fight, so the enemy and the
+  // reticle share the frame with your own hull.
+  const look = new Vector3(s.x, waveHeight(s.x, s.z, amp) + geo.mastH * 0.22, s.z);
+  if (target && target.sinking === 0) {
+    const lead = 0.11;
+    look.x += (target.x - s.x) * lead;
+    look.z += (target.z - s.z) * lead;
+  }
+  camera.setTarget(look);
 }
 
 /* --- weather / class switching (debug affordances) --- */
@@ -145,6 +212,8 @@ input.onHotkey = (k) => {
 };
 
 /* --- loop --- */
+let fireOverride: -1 | 0 | 1 = 0;
+let aimOverride: number | null = null;
 let cmdAccumulator = 0;
 let last = performance.now();
 let fpsSamples: number[] = [];
@@ -159,7 +228,10 @@ engine.runRenderLoop(() => {
   cmdAccumulator += dt * 1000;
   while (cmdAccumulator >= TICK_MS) {
     cmdAccumulator -= TICK_MS;
-    transport.sendCommand(input.sample(TICK_MS / 1000));
+    const cmd = input.sample(TICK_MS / 1000);
+    if (fireOverride !== 0) { cmd.fire = fireOverride; fireOverride = 0; }
+    if (aimOverride != null) cmd.aimRange = aimOverride;
+    transport.sendCommand(cmd);
   }
 
   transport.update(now);
@@ -168,13 +240,26 @@ engine.runRenderLoop(() => {
   if (snap) {
     const amp = WEATHER[snap.weather].ocean.amp;
     for (const s of snap.ships) syncShip(s, amp);
+    effects.syncProjectiles(snap.projectiles);
+    consumeEvents(snap, amp);
+
     const me = snap.ships.find((s) => s.id === PLAYER_ID);
     if (me) {
-      followCamera(me, amp, dt);
-      updateHud(me, snap.windFrom);
+      const target = snap.ships.find((s) => s.id !== PLAYER_ID);
+      followCamera(me, target, amp, dt);
+      renderHud(hud, {
+        me, target,
+        windFrom: snap.windFrom,
+        weather: snap.weather,
+        aimRange: input.aimRange,
+        ammo: input.ammoType,
+        latencyMs: transport.latencyMs,
+      });
+      updateReticle(me, amp);
     }
   }
 
+  effects.update(dt, camera.position);
   scene.render();
 
   fpsSamples.push(engine.getFps());
@@ -183,18 +268,49 @@ engine.runRenderLoop(() => {
   drawRain(overlay, WEATHER[weather].rain, now);
 });
 
-function updateHud(me: ShipState, windFrom: number): void {
-  const cls = SHIP_CLASSES[me.cls];
-  const off = angleOffWind(me.heading, windFrom);
-  const knots = me.speed * 1.94384;
-  hud.innerHTML = `
-    <div class="row"><b>${cls.name}</b><span>${cls.rig}</span></div>
-    <div class="row"><span>Speed</span><b>${knots.toFixed(1)} kn</b></div>
-    <div class="row"><span>Point of sail</span><b>${pointOfSailName(off)}</b></div>
-    <div class="row"><span>Sail</span><b>${Math.round(me.sail * 100)}%</b></div>
-    <div class="row"><span>Weather</span><b>${WEATHER[weather].name}</b></div>
-    <div class="row"><span>Latency</span><b>${transport.latencyMs} ms</b></div>
-    <div class="keys">A/D steer &middot; W/S sail &middot; C class &middot; 1-5 weather &middot; V latency</div>`;
+
+/* Snapshot events are transient — they appear in exactly one snapshot. The
+ * interpolator can hand back the same snapshot across several frames, so
+ * track the last tick consumed rather than replaying the same explosions. */
+let lastEventTick = -1;
+function consumeEvents(snap: NonNullable<ReturnType<typeof interp.sample>>, amp: number): void {
+  if (snap.tick === lastEventTick) return;
+  lastEventTick = snap.tick;
+
+  for (const e of snap.events) {
+    if (e.kind === 'splash') {
+      effects.spawnPuff(e.x, waveHeight(e.x, e.z, amp) + 0.6, e.z, 1.5, 0.7, 3.2);
+    } else if (e.kind === 'impact') {
+      effects.spawnPuff(e.x, e.y, e.z, 1.8, 0.6, 1.6);
+    } else if (e.kind === 'muzzle') {
+      // The local ship already flashed on the keypress; this covers everyone else.
+      const ship = snap.ships.find((s) => s.id === e.shipId);
+      if (ship && ship.id !== PLAYER_ID) spawnMuzzleSmoke(ship, e.side);
+    } else if (e.kind === 'sunk') {
+      const ship = snap.ships.find((s) => s.id === e.shipId);
+      if (ship) {
+        for (let i = 0; i < 5; i++) {
+          effects.spawnPuff(ship.x, waveHeight(ship.x, ship.z, amp) + 1 + i, ship.z, 3.5, 1.8, 1.2);
+        }
+      }
+    }
+  }
+}
+
+/* The reticle marks where a broadside would land: straight off the beam at the
+ * chosen range. Range is the only thing the gunner controls — bearing comes
+ * from steering the ship, which is the whole point of a fixed battery. */
+function updateReticle(me: ShipState, amp: number): void {
+  const r = input.aimRange;
+  for (const side of [-1, 1] as const) {
+    const beam = me.heading + (side * Math.PI) / 2;
+    const x = me.x + Math.sin(beam) * r;
+    const z = me.z + Math.cos(beam) * r;
+    const marker = side < 0 ? reticlePort : reticleStbd;
+    marker.position.set(x, waveHeight(x, z, amp) + 0.35, z);
+    const ready = side < 0 ? me.reloadPort : me.reloadStbd;
+    marker.scaling.setAll(ready >= 1 ? 1 : 0.55);
+  }
 }
 
 /* Expose a couple of read-only handles so headless verification can measure
@@ -205,6 +321,14 @@ function updateHud(me: ShipState, windFrom: number): void {
   setClass: (cls: ShipClassId) => transport.sendControl({ kind: 'setClass', shipId: PLAYER_ID, cls }),
   setLatency: (ms: number) => { transport.latencyMs = ms; },
   snapshot: () => interp.latest,
+  /* Verification handles: fire a broadside and read combat state without
+   * having to synthesise keyboard events. */
+  fire: (side: -1 | 1) => {
+    const me = interp.latest?.ships.find((s) => s.id === PLAYER_ID);
+    if (me) spawnMuzzleSmoke(me, side);
+    fireOverride = side;
+  },
+  setAim: (r: number) => { aimOverride = r; },
   triangles: () => scene.getActiveMeshes().length,
   vertices: () => scene.getTotalVertices(),
 };
