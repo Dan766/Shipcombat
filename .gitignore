@@ -8,3 +8,7 @@ fonts/
 
 # Scratch renders and screenshots
 prototype/_*
+
+# Game app build output and dependencies
+game/node_modules/
+game/dist/

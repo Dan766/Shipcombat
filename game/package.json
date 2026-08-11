@@ -1,0 +1,25 @@
+{
+  "name": "shipcombat",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "check:layering": "node scripts/check-layering.mjs",
+    "test:determinism": "node --experimental-strip-types scripts/determinism.ts",
+    "verify": "npm run typecheck && npm run check:layering && npm run test:determinism",
+    "verify:render": "node scripts/verify-render.mjs"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^9.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "puppeteer-core": "^25.6.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}

@@ -2,9 +2,16 @@
 
 A small flat-shaded software renderer (canvas 2D, no dependencies) used to
 produce the art direction and HUD mockups. **This is not the game engine** —
-the game targets Babylon.js. This exists so the art direction is executable
-and reviewable rather than described in prose, and so the lighting values in
-`GAME_DESIGN.md` are grounded in something that actually renders.
+the playable build lives in `game/`.
+
+It exists so the art direction is executable and reviewable rather than
+described in prose, and so the lighting values in `GAME_DESIGN.md` are
+grounded in something that actually renders.
+
+> **Frozen reference.** The ship class and weather tables here are a snapshot.
+> `game/src/data/` is the source of truth now; change values there. The
+> geometry in this directory is still the origin of the meshes the game
+> builds, and the two should be kept visually in step.
 
 ## Files
 
@@ -50,12 +57,15 @@ The renderer is deliberately structured around concepts that port directly:
   a wrapped lambert so unlit faces never crush). → `HemisphericLight` plus a
   low-intensity `DirectionalLight`.
 - **Fog** — everything fades toward the horizon color with distance.
-  → `scene.fogMode = FOGMODE_EXP`.
+  → `scene.fogMode = FOGMODE_LINEAR` with `fogStart`/`fogEnd`. (This file
+  previously said `FOGMODE_EXP`; linear is the correct match, because the
+  renderer here fades with `smoothstep(start, end)`.)
 - **Flat shading** — one fill per triangle.
   → `mesh.convertToFlatShadedMesh()`.
-- **Waterline clipping** — hulls are cut at the sea surface so ships sit in
-  the water. Here it is a world-space polygon clip; in Babylon this is better
-  done with a clip plane or by authoring hulls that end at the waterline.
+- **Waterline clipping** — *does not need porting at all.* Hulls are cut at
+  the sea surface here purely because painter's-algorithm sorting cannot
+  resolve a hull against huge ocean facets. A real depth buffer handles it,
+  and the Babylon build in `game/` renders full hulls with no clip.
 
 - **Class geometry** — `shipclasses.js` is plain data with no rendering in it,
   so the Babylon build should consume the same table rather than re-deriving

@@ -35,9 +35,11 @@ able to fill either role.
 - **Rendering engine**: [Babylon.js](https://www.babylonjs.com/) — WebGL,
   built-in physics (via its physics plugins), and a reasonable path toward
   multiplayer scaffolding.
-- **Multiplayer/networking**: not yet decided. Will need a server-
-  authoritative layer for fairness (e.g. Node.js + WebSockets, or a
-  framework like Colyseus). Flagged as an open question below.
+- **Multiplayer/networking**: architecture decided, wire not yet built. The
+  simulation is authoritative and engine-free, running at a fixed 30 Hz
+  behind a `Transport` seam; the client sends commands and renders
+  interpolated snapshots. Today that transport runs in-process with
+  simulated latency. See Implementation below.
 - **Bots**: server- or client-side AI opponents that can pilot ships using
   the same controls/combat rules as players, for PvE content and to fill
   PvP lobbies.
@@ -89,7 +91,9 @@ build should reproduce; the mood board renders them live from real geometry.
   → Babylon: `HemisphericLight` + a low-intensity `DirectionalLight`.
 - **Distance haze does the depth work.** Everything fades toward the
   horizon color with distance, replacing detail and selling scale.
-  → Babylon: `scene.fogMode = FOGMODE_EXP` tuned to the horizon color.
+  → Babylon: `scene.fogMode = FOGMODE_LINEAR` with `fogStart`/`fogEnd` set
+  to the weather's range. (Linear, not EXP — the prototype fades with
+  `smoothstep(start, end)`, which linear matches directly.)
 - **Flat facets, no gradients.** One flat fill per triangle; shape reads
   from the angle between neighboring facets.
   → Babylon: flat/faceted normals (`mesh.convertToFlatShadedMesh()`).
@@ -97,8 +101,10 @@ build should reproduce; the mood board renders them live from real geometry.
   choppy near camera and flattening toward the horizon.
 - **Chunky silhouettes.** A ship is a hull, a mast, and two or three
   sails. If it isn't recognizable at minimap size, it has too many parts.
-- **Cut at the waterline.** Hulls are clipped where they meet the sea so
-  ships sit *in* the water rather than on it.
+- **Ships sit *in* the water, not on it.** In the prototype this needed an
+  explicit waterline clip, because painter's-algorithm sorting cannot
+  resolve a hull against huge ocean facets. In Babylon the depth buffer
+  handles it and no clip is used — see `game/src/render/shipMesh.ts`.
 
 Palette (per scene, five hues plus a reserved accent): sea `#2F97B8`,
 crest `#7ED6DD`, haze `#D8E8F2`, hull `#A5662F`, deck `#D3A05A`, sail
@@ -148,6 +154,49 @@ silhouette test in the Ship Classes mockup.
 Definitions live in `prototype/shipclasses.js` — geometry and stats in one
 table, so the renders can't drift from the numbers printed beside them.
 
+## Sailing Model
+
+Speed is `base x pointOfSail(angle off wind) x windStrength x sailTrim`.
+Turn rate falls off as a ship approaches its top speed, so nothing pivots at
+full pace, and speed chases its target rather than snapping to it — that lag
+is most of what makes a heavy ship feel heavy.
+
+| Angle off wind | Zone | Multiplier |
+| --- | --- | --- |
+| 0-40 deg | In irons | 0.12 |
+| 40-70 deg | Close hauled | 0.30 - 0.65 |
+| 70-120 deg | Beam reach | 0.92 - 1.00 |
+| 120-160 deg | Broad reach | 0.95 - 0.82 |
+| 160-180 deg | Running | 0.75 |
+
+| Class | Base speed | Turn rate | Accel |
+| --- | --- | --- | --- |
+| Sloop | 9.0 m/s | 45 deg/s | 2.6 |
+| Brig | 8.0 m/s | 34 deg/s | 2.0 |
+| Frigate | 7.0 m/s | 25 deg/s | 1.5 |
+| Galleon | 5.5 m/s | 16 deg/s | 1.0 |
+
+Wind strength by weather: clear 0.55, fair 1.0, squall 1.35, storm 1.6,
+fog 0.5 — which is why the same ship reads about 4.6 kn in clear air and
+13.3 kn in a gale. The zone table above is interpolated rather than stepped;
+flat zones feel like a gearbox when you steer across a boundary.
+
+All values are starting points for tuning, not balance claims.
+
+## Implementation
+
+The playable build lives in `game/` (Babylon.js + Vite + TypeScript). It is
+**structured for authoritative multiplayer from day one** on one rule: the
+simulation never imports the engine, and the renderer never mutates
+simulation state. Commands and snapshots cross a `Transport` interface which
+today runs in-process and later becomes a WebSocket, with a configurable
+simulated latency so the client's interpolation buffer is exercised now
+rather than on the day real networking lands.
+
+Client-side prediction is deliberately deferred — the slice renders
+authoritative state with interpolation only, which is the honest baseline
+prediction will be measured against. See `game/README.md`.
+
 ## Weather
 
 Five sea states. Weather is meant to change what you can *do*, not just what
@@ -188,8 +237,16 @@ differ only in numbers and silhouette.
 
 ## Open Questions
 
-- [ ] Networking approach for multiplayer (authoritative server tech,
-      tick rate, rollback/interpolation strategy).
+- [x] ~~Whether to structure for multiplayer up front~~ — resolved: yes.
+      Authoritative simulation at 30 Hz behind a `Transport` seam, snapshot
+      interpolation on the client. See `game/README.md`.
+- [ ] Networking transport and hosting (WebSocket vs WebRTC, server
+      topology, matchmaking). The seam exists; the wire does not.
+- [ ] Client-side prediction and reconciliation — deferred, not designed.
+- [ ] Whether 60 fps holds on real GPU hardware. The slice runs on a
+      software rasteriser in CI (~9-13 fps, a floor) with a light budget of
+      ~86k vertices and 3-4 draw calls, but this has not been measured on an
+      actual GPU.
 - [x] ~~Ship roster size and differentiation at launch~~ — resolved: four
       classes on linear tiers (see Ship Classes above).
 - [ ] Whether the Sloop's turn advantage is actually enough to survive a
