@@ -40,13 +40,15 @@ const DEFAULT_CLOUDS = [
   { x: 0.84, y: 0.19, s: 0.14, seed: 15, alpha: 0.88 },
 ];
 
-function baseScene(camera, meshes, clouds) {
+function baseScene(camera, meshes, clouds, fog) {
   return {
     sky: SKY,
     clouds: clouds || DEFAULT_CLOUDS,
     camera: camera,
     sun: SUN,
-    fog: FOG,
+    // Overridable: the class lineup shoots from far enough away that the
+    // default haze would flatten every ship into the horizon color.
+    fog: fog || FOG,
     meshes: meshes,
   };
 }
@@ -88,8 +90,10 @@ function sceneCombat() {
   const m = [oceanMesh(36, 1.15, 77)];
   m.push.apply(m, buildIsland({ pos: [120, -1, 60], r: 34, h: 15, trees: 5, seed: 61 }));
   m.push.apply(m, buildIsland({ pos: [40, -1, -170], r: 40, h: 18, trees: 4, seed: 71 }));
-  m.push.apply(m, buildShip({ pos: [0, -1.45, 0], rotY: 0.3, heel: 0.06, scale: 1.15, palette: PLAYER_SHIP, seed: 4 }));
-  m.push.apply(m, buildShip({ pos: [38, -1.45, -34], rotY: 2.45, heel: -0.07, scale: 1.05, palette: ENEMY_SHIP, seed: 7 }));
+  // The HUD labels these "Sea Wolf — Sloop" and "Iron Gull — Frigate", so
+  // they are built from those actual classes.
+  m.push.apply(m, buildClassShip('sloop', { pos: [0, null, 0], rotY: 0.3, heel: 0.06, scale: 1.15, palette: PLAYER_SHIP, seed: 4 }));
+  m.push.apply(m, buildClassShip('frigate', { pos: [42, null, -38], rotY: 2.45, heel: -0.07, scale: 1.0, palette: ENEMY_SHIP, seed: 7 }));
   return baseScene(
     { eye: [-36, 15, 9], target: [16, 1.6, -6], fov: 48 },
     m,
@@ -98,6 +102,93 @@ function sceneCombat() {
       { x: 0.68, y: 0.08, s: 0.11, seed: 9, alpha: 0.8 },
     ]
   );
+}
+
+/* --- class roster scenes --- */
+
+// All four classes broadside-on along one waterline at true relative scale.
+// Shot from far away through a narrow lens to approximate an orthographic
+// view, so the size comparison is honest rather than perspective-skewed.
+function sceneClassLineup() {
+  const m = [oceanMesh(26, 0.5, 91)];
+  // Laid out along z with gaps proportional to hull length, and turned
+  // broadside (rotY = 90 deg) so the camera down the -x axis sees profiles.
+  let z = -52;
+  SHIP_CLASS_ORDER.forEach(function (id, i) {
+    const geo = SHIP_CLASSES[id].geo;
+    z += geo.len * 0.62;
+    m.push.apply(m, buildClassShip(id, {
+      pos: [0, null, z], rotY: Math.PI / 2, heel: 0, palette: PLAYER_SHIP, seed: 4 + i,
+    }));
+    z += geo.len * 0.62;
+  });
+  return baseScene(
+    { eye: [-300, 17, 4], target: [0, 12, 4], fov: 9 },
+    m,
+    [{ x: 0.2, y: 0.16, s: 0.1, seed: 3, alpha: 0.7 }, { x: 0.78, y: 0.12, s: 0.11, seed: 9, alpha: 0.65 }],
+    { color: HAZE, start: 260, end: 540 }
+  );
+}
+
+// One class, three-quarter view, framed so each fills its card similarly
+// despite the roster spanning a 2x size range.
+function sceneClassPortrait(classId) {
+  const cls = SHIP_CLASSES[classId];
+  const k = cls.geo.len / 16; // frame distance scales with hull length
+  const m = [oceanMesh(22, 0.8, 40 + cls.geo.len)];
+  m.push.apply(m, buildClassShip(classId, {
+    pos: [0, null, 0], rotY: 1.42, heel: 0.05, palette: PLAYER_SHIP, seed: 4,
+  }));
+  return baseScene(
+    // Pulled back and offset toward the bow so the bowsprit stays in frame.
+    { eye: [-20 * k, 9 * k, -5.5 * k], target: [3 * k, 3.8 * k, 1.8 * k], fov: 50 },
+    m,
+    [{ x: 0.22, y: 0.14, s: 0.11, seed: 6, alpha: 0.8 }, { x: 0.76, y: 0.2, s: 0.12, seed: 12, alpha: 0.75 }],
+    { color: HAZE, start: 90, end: 420 }
+  );
+}
+
+// Readability test: flat near-black hull against a pale ground, no ocean and
+// no haze. If the four are not tellable apart here, the silhouettes are not
+// doing their job at minimap size.
+const SILHOUETTE_PALETTE = (function () {
+  const ink = '#16232b';
+  return {
+    hull: ink, hullDark: ink, deck: ink, stripe: ink, cabin: ink,
+    mast: ink, sail: ink, sailAlt: ink, flag: ink, gunPort: ink,
+  };
+})();
+
+function sceneClassSilhouette(classId) {
+  const geo = SHIP_CLASSES[classId].geo;
+  // No sea here, so the waterline clip is disabled — otherwise the hull
+  // would be sliced off with nothing to hide the cut.
+  const m = buildClassShip(classId, {
+    // ~55 degrees off the camera axis. Dead-on foreshortens the hull length
+    // away; full broadside turns the square sails edge-on. This angle keeps
+    // roughly 80% of the length and 58% of the sail area — both cues legible.
+    pos: [0, 0, 0], rotY: 0.7, heel: 0, clipBelow: -999,
+    palette: SILHOUETTE_PALETTE, seed: 4,
+  });
+  const mastTop = geo.depth + geo.len * 0.8;
+  const flat = { top: '#dfeaf1', mid: '#dfeaf1', horizon: '#dfeaf1', cloud: '#dfeaf1' };
+  const scene = baseScene(
+    // Three-quarter view: dead broadside would put the square sails edge-on
+    // and collapse them to lines. This is also closer to how a ship actually
+    // presents itself at distance in play.
+    {
+      eye: [-2.05 * mastTop, 0.86 * mastTop, -0.54 * mastTop],
+      target: [0, 0.45 * mastTop, 0],
+      fov: 38,
+    },
+    m,
+    [],
+    { color: '#dfeaf1', start: 9000, end: 10000 }
+  );
+  scene.sky = flat;
+  // Flat ambient only — a silhouette should carry no shading information.
+  scene.sun = { dir: [0, 1, 0], color: '#000000', skyFill: '#ffffff', groundFill: '#ffffff', ambient: 1, strength: 0, wrap: 1 };
+  return scene;
 }
 
 /* Render helper: draws once, and re-draws on resize (debounced). Static by

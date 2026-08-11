@@ -1,0 +1,326 @@
+<title>Ship Combat — Ship Classes</title>
+<style>
+__FONTFACES__
+
+/* Single-theme by intent — matches the art direction board. */
+:root {
+  --void: #0d1418;
+  --panel: #141d23;
+  --panel-2: #111a1f;
+  --panel-border: rgba(226, 168, 79, 0.2);
+  --hairline: rgba(233, 241, 240, 0.1);
+  --ink: #eef3f4;
+  --ink-muted: #9aabb0;
+  --ink-faint: #6a7d82;
+  --brass: #e2a84f;
+  --brass-soft: rgba(226, 168, 79, 0.12);
+
+  --font-display: 'Fraunces', Georgia, 'Iowan Old Style', serif;
+  --font-body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-body);
+}
+
+body { padding: 56px 32px 80px; }
+.wrap { max-width: 1180px; margin: 0 auto; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brass);
+  font-weight: 500;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.1rem);
+  line-height: 1.06;
+  margin: 0.5rem 0 0.9rem;
+  text-wrap: balance;
+  letter-spacing: -0.015em;
+}
+
+.dek {
+  font-size: 1.03rem;
+  line-height: 1.62;
+  color: var(--ink-muted);
+  max-width: 64ch;
+  margin: 0;
+}
+
+.meta-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+.meta-row b { color: var(--ink-muted); font-weight: 500; }
+
+/* --- lineup hero --- */
+
+.hero {
+  margin-top: 40px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.hero-canvas-wrap { width: 100%; aspect-ratio: 24 / 9; background: #8bbfe9; }
+.hero-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.hero-cap {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  border-top: 1px solid var(--hairline);
+}
+
+/* --- class cards --- */
+
+section { margin-top: 52px; }
+.section-head { display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+.section-head h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.42rem; margin: 0; }
+.section-head .note { font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint); }
+
+.class-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 860px) { .class-grid { grid-template-columns: 1fr; } }
+
+.class-card {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.class-canvas-wrap { width: 100%; aspect-ratio: 16 / 9; background: #8bbfe9; }
+.class-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.class-body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+
+.class-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.class-name { font-family: var(--font-display); font-weight: 600; font-size: 1.32rem; margin: 0; }
+.class-role {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+.class-blurb { font-size: 0.9rem; line-height: 1.56; color: var(--ink-muted); margin: 0; }
+
+.spec-row {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+}
+.spec-row b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 7px 12px; align-items: center; }
+.stat-name {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.pips { display: flex; gap: 4px; }
+.pip { width: 22px; height: 7px; border-radius: 2px; border: 1px solid var(--brass); opacity: 0.45; }
+.pip.filled { background: var(--brass); opacity: 1; }
+
+/* --- silhouette strip --- */
+
+.sil-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+@media (max-width: 640px) { .sil-strip { grid-template-columns: repeat(2, 1fr); } }
+.sil-cell {
+  border: 1px solid var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+.sil-canvas-wrap { width: 100%; aspect-ratio: 4 / 3; background: #dfeaf1; }
+.sil-canvas-wrap canvas { display: block; width: 100%; height: 100%; }
+.sil-label {
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-muted);
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sil-label span:last-child { color: var(--ink-faint); }
+
+.callout {
+  margin-top: 40px;
+  border-left: 2px solid var(--brass);
+  background: var(--brass-soft);
+  padding: 18px 24px;
+  border-radius: 0 3px 3px 0;
+  display: flex;
+  gap: 18px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.callout .tag {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass);
+  flex-shrink: 0;
+}
+.callout p { margin: 0; font-size: 0.93rem; line-height: 1.56; color: var(--ink); max-width: 66ch; }
+.callout code { font-family: var(--font-mono); font-size: 0.85em; color: var(--brass); }
+
+footer {
+  margin-top: 48px;
+  padding-top: 18px;
+  border-top: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Ship Combat — Roster</div>
+  <h1>Ship Classes</h1>
+  <p class="dek">Four hulls on a single axis: speed and turn traded for hull and broadside weight. No matchup
+    counters — a heavier ship wins any trade it can force, and a lighter ship's whole job is refusing that
+    trade. Every render below is built from the same class definitions the game would use.</p>
+  <div class="meta-row">
+    <span><b>Status</b> Roster v0.1</span>
+    <span><b>Model</b> Linear tiers</span>
+    <span><b>Companion doc</b> GAME_DESIGN.md</span>
+  </div>
+
+  <div class="hero">
+    <div class="hero-canvas-wrap"><canvas id="scene-lineup"></canvas></div>
+    <div class="hero-cap">
+      <span>All four at true relative scale — 16 m sloop to 34 m galleon</span>
+      <span>near-orthographic · one waterline</span>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <h2>The Roster</h2>
+      <span class="note">ratings are relative placeholders, not tuned values</span>
+    </div>
+    <div class="class-grid" id="class-grid"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Silhouette Test</h2>
+      <span class="note">the same four in flat black, at the size they read in a fight</span>
+    </div>
+    <div class="sil-strip" id="sil-strip"></div>
+  </section>
+
+  <div class="callout">
+    <span class="tag">Still to tune</span>
+    <p>The 1–5 ratings are placed evenly to state intent, not because they are balanced. The real question is
+      whether the Sloop's turn advantage is actually enough to survive a Galleon's broadside at close range —
+      that needs playtesting, not a table. Class-specific abilities are deliberately out of scope for now; see
+      <code>GAME_DESIGN.md</code>.</p>
+  </div>
+
+  <footer>Roster v0.1 — geometry and stats generated from the shared class table
+    (<code>prototype/shipclasses.js</code>), so these renders cannot drift from the numbers beside them.</footer>
+</div>
+
+<script>
+__LOWPOLY3D_JS__
+</script>
+<script>
+__SHIPS_JS__
+</script>
+<script>
+__SHIPCLASSES_JS__
+</script>
+<script>
+__SCENES_JS__
+</script>
+<script>
+const STAT_ROWS = [
+  ['Speed', 'speed'],
+  ['Turn', 'turn'],
+  ['Hull', 'hull'],
+  ['Broadside', 'broadside'],
+];
+
+function pips(value) {
+  let out = '<span class="pips">';
+  for (let i = 1; i <= 5; i++) out += '<span class="pip' + (i <= value ? ' filled' : '') + '"></span>';
+  return out + '</span>';
+}
+
+// Cards are generated from the class table so the numbers beside each render
+// always come from the same source as the geometry in it.
+document.getElementById('class-grid').innerHTML = SHIP_CLASS_ORDER.map(function (id) {
+  const c = SHIP_CLASSES[id];
+  const stats = STAT_ROWS.map(function (row) {
+    return '<span class="stat-name">' + row[0] + '</span>' + pips(c.stats[row[1]]);
+  }).join('');
+  return '' +
+    '<div class="class-card">' +
+      '<div class="class-canvas-wrap"><canvas id="portrait-' + id + '"></canvas></div>' +
+      '<div class="class-body">' +
+        '<div class="class-head"><h3 class="class-name">' + c.name + '</h3>' +
+          '<span class="class-role">' + c.role + '</span></div>' +
+        '<p class="class-blurb">' + c.blurb + '</p>' +
+        '<div class="spec-row">' +
+          '<span>Length <b>' + c.length + '</b></span>' +
+          '<span>Guns <b>' + c.guns + '</b></span>' +
+          '<span>Crew <b>' + c.crew + '</b></span>' +
+          '<span>Masts <b>' + c.geo.masts.length + '</b></span>' +
+        '</div>' +
+        '<div class="stats">' + stats + '</div>' +
+      '</div>' +
+    '</div>';
+}).join('');
+
+document.getElementById('sil-strip').innerHTML = SHIP_CLASS_ORDER.map(function (id) {
+  const c = SHIP_CLASSES[id];
+  return '' +
+    '<div class="sil-cell">' +
+      '<div class="sil-canvas-wrap"><canvas id="sil-' + id + '"></canvas></div>' +
+      '<div class="sil-label"><span>' + c.name + '</span><span>' + c.geo.masts.length + ' mast' +
+        (c.geo.masts.length > 1 ? 's' : '') + '</span></div>' +
+    '</div>';
+}).join('');
+
+mountScene('scene-lineup', sceneClassLineup);
+SHIP_CLASS_ORDER.forEach(function (id) {
+  mountScene('portrait-' + id, function () { return sceneClassPortrait(id); });
+  mountScene('sil-' + id, function () { return sceneClassSilhouette(id); });
+});
+</script>

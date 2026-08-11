@@ -2,9 +2,10 @@
 
 _Living document. This is the starting point for requirements — expect it to change as we iterate._
 
-**Visual references (v0.2):**
+**Visual references:**
 - [Art Direction](https://claude.ai/code/artifact/7b0e04e4-4b83-4dff-acde-76258c5c2249) — key art, range tests, palette, and construction rules. Rendered live in 3D.
 - [Combat HUD](https://claude.ai/code/artifact/3b0a7c9f-8096-49cf-9254-5d7af34e307d) — in-combat screen over the actual third-person camera framing.
+- [Ship Classes](https://claude.ai/code/artifact/a8cf2458-6788-4f9a-bf19-f927bc6f50d3) — the four-class roster at true relative scale, with stats and a silhouette readability test.
 
 ## Overview
 
@@ -105,18 +106,46 @@ distinct enough to tell friend from foe at range.
 It is not the game engine — it exists so the art direction is executable
 and reviewable, and so the values above are grounded in something real.
 
+## Ship Classes
+
+Four classes on a single axis — speed and turn traded for hull and
+broadside weight. **Linear tiers, not rock-paper-scissors**: a heavier ship
+wins any trade it can force, and a lighter ship's job is to refuse that
+trade by controlling range and angle. Skill decides fights rather than
+matchups, and every class is legible to a new player from its silhouette.
+
+| Class | Role | Masts | Length | Guns | Crew | Speed | Turn | Hull | Broadside |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Sloop | Skirmisher | 1 | 16 m | 8 | 12 | 5 | 5 | 2 | 2 |
+| Brig | All-rounder | 2 | 21 m | 16 | 24 | 4 | 4 | 3 | 3 |
+| Frigate | Line fighter | 3 | 27 m | 28 | 42 | 3 | 3 | 4 | 4 |
+| Galleon | Fortress | 4 | 34 m | 44 | 68 | 2 | 1 | 5 | 5 |
+
+Ratings are 1–5 relative placeholders stating intent, not tuned values.
+Mast count is the primary silhouette cue and rises with tier, so class
+reads at a glance and at distance; gun ports along the hull are the
+secondary cue. Both are verified in the Ship Classes mockup's silhouette
+test.
+
+Definitions live in `prototype/shipclasses.js` — geometry and stats in one
+table, so the renders can't drift from the numbers printed beside them.
+
 ## Progression / Meta (placeholder)
 
-Not yet designed. Candidate ideas to revisit later: ship classes with
-different stats, cosmetic customization (sails, flags, hull paint),
-unlockable ammo types. No commitments yet.
+Not yet designed. Candidate ideas to revisit later: cosmetic customization
+(sails, flags, hull paint), unlockable ammo types, and whether classes are
+unlocked or available from the start. Class-specific abilities are
+deliberately out of scope — the linear-tier model above assumes classes
+differ only in numbers and silhouette.
 
 ## Open Questions
 
 - [ ] Networking approach for multiplayer (authoritative server tech,
       tick rate, rollback/interpolation strategy).
-- [ ] Ship roster size and differentiation at launch (one ship class vs.
-      several).
+- [x] ~~Ship roster size and differentiation at launch~~ — resolved: four
+      classes on linear tiers (see Ship Classes above).
+- [ ] Whether the Sloop's turn advantage is actually enough to survive a
+      Galleon broadside at close range. Needs playtesting, not a table.
 - [ ] Target session length for a PvP match.
 - [x] ~~Overall art tone~~ — resolved: bright daylight stylized low-poly
       (see Art Direction above).

@@ -12,20 +12,33 @@ and reviewable rather than described in prose, and so the lighting values in
 | --- | --- |
 | `lowpoly3d.js` | The renderer: perspective camera, mesh primitives, flat shading, distance haze, painter's-algorithm sorting |
 | `ships.js` | Ship, island and prop assembly built from those primitives |
-| `scenes.js` | Shared palette + light rig, and the four scenes used in the mockups |
+| `shipclasses.js` | The class roster — geometry and stats in one table, plus `buildClassShip()` |
+| `scenes.js` | Shared palette + light rig, and every scene used in the mockups |
 | `moodboard.src.html` | Art direction page (source, before font inlining) |
 | `hud.src.html` | Combat HUD page (source, before font inlining) |
+| `classes.src.html` | Ship classes page (source, before font inlining) |
 | `build.py` | Inlines fonts and the JS above into standalone `.html` files |
+| `make-fonts.sh` | Downloads and subsets the webfonts into `../fonts/fontfaces.css` |
+
+Load order matters and is fixed by the token order in each `.src.html`:
+`lowpoly3d.js` → `ships.js` → `shipclasses.js` → `scenes.js`. `ships.js` is
+deliberately free of any dependency on the class table, so the renderer and
+the roster data stay separable.
 
 ## Building the pages
 
-`build.py` expects subsetted woff2 fonts as a `../fonts/fontfaces.css` file of
-`@font-face` rules with base64 data URIs (Fraunces, Work Sans, IBM Plex Mono).
-The published artifacts must be fully self-contained — no external requests.
+Both the built `.html` files and `../fonts/` are generated, and both are
+gitignored. From a fresh clone:
 
 ```
-python3 build.py     # writes moodboard.html and hud.html
+bash prototype/make-fonts.sh   # writes ../fonts/fontfaces.css (needs fonttools + brotli)
+python3 prototype/build.py     # writes moodboard.html, hud.html, classes.html
 ```
+
+Fonts are subsetted to the glyphs the pages actually use — the full TTFs are
+~900 KB together versus ~100 KB subsetted, and every published page carries a
+complete copy inline. Published artifacts must be fully self-contained, so
+nothing may reference an external URL.
 
 ## What carries over to Babylon.js
 
@@ -42,5 +55,19 @@ The renderer is deliberately structured around concepts that port directly:
   the water. Here it is a world-space polygon clip; in Babylon this is better
   done with a clip plane or by authoring hulls that end at the waterline.
 
+- **Class geometry** — `shipclasses.js` is plain data with no rendering in it,
+  so the Babylon build should consume the same table rather than re-deriving
+  hull dimensions. Keeping stats and geometry in one record is what stops the
+  renders from disagreeing with the numbers printed next to them.
+
 The scene definitions in `scenes.js` (camera framing, ship placement, palette)
 are the reference the Babylon scenes should match.
+
+## A note on viewing angles
+
+Two of the scenes exist to test claims rather than to look good, and both ran
+into the same geometric trap: square sails hang across the beam, so a dead
+broadside view turns them edge-on and they vanish, while a bow-on view
+foreshortens the hull length away. `sceneClassSilhouette` settles at ~55° off
+axis, which keeps roughly 80% of the hull length and 58% of the sail area —
+enough of both cues to tell the four classes apart in flat black.

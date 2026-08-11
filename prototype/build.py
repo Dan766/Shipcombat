@@ -9,10 +9,11 @@ PARTS = {
     '__FONTFACES__': FONTS,
     '__LOWPOLY3D_JS__': BASE / 'lowpoly3d.js',
     '__SHIPS_JS__': BASE / 'ships.js',
+    '__SHIPCLASSES_JS__': BASE / 'shipclasses.js',
     '__SCENES_JS__': BASE / 'scenes.js',
 }
 
-for name in ('moodboard', 'hud'):
+for name in ('moodboard', 'hud', 'classes'):
     src = BASE / (name + '.src.html')
     if not src.exists():
         continue

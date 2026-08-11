@@ -11,11 +11,16 @@ function bakeParts(parts, outer) {
   return out;
 }
 
+// Default rig: a single mast, i.e. the sloop. Classes override this with
+// their own mast list — see shipclasses.js.
+const DEFAULT_MASTS = [{ xFrac: -0.03, heightFrac: 0.8, yardFrac: 0.62, sailW: 1.6, topsail: true }];
+
 function buildShip(cfg) {
   const p = cfg.palette;
   const len = cfg.len || 16;
   const beam = cfg.beam || 5;
   const depth = cfg.depth || 2.6;
+  const masts = cfg.masts || DEFAULT_MASTS;
   const parts = [];
 
   parts.push({ mesh: makeHull(len, beam, depth, p.deck, p.hull, { keelRise: 0.5 }), t: {} });
@@ -39,50 +44,94 @@ function buildShip(cfg) {
     t: { pos: [0, depth - 0.04, 0] },
   });
 
-  // Raised quarterdeck + a low cabin aft — kept shallow so it reads as
-  // structure on the deck rather than a shed dropped onto the hull.
+  // Gun ports: the clearest read on how heavy a ship is. Confined to the
+  // parallel midships run so they can sit at a fixed beam offset without
+  // drifting off the tapered bow and stern.
+  const gunPorts = cfg.gunPorts || 0;
+  if (gunPorts > 0) {
+    const span = len * 0.62;
+    const portY = deckY - 0.62;
+    for (let i = 0; i < gunPorts; i++) {
+      const t = gunPorts === 1 ? 0.5 : i / (gunPorts - 1);
+      const px = -span / 2 + span * t - len * 0.03;
+      for (const side of [-1, 1]) {
+        parts.push({
+          mesh: makeBox(len * 0.028, 0.5, 0.12, p.gunPort || p.hullDark),
+          t: { pos: [px, portY, side * beam * 0.475] },
+        });
+      }
+    }
+  }
+
+  // Stern castle: a stack of progressively smaller decks. One shallow deck
+  // reads as a sloop's quarterdeck; four stacked reads as a galleon.
+  const stern = cfg.sterncastle || { decks: 2, height: 0.62 };
+  let castleY = deckY;
+  for (let d = 0; d < stern.decks; d++) {
+    const shrink = 1 - d * 0.16;
+    parts.push({
+      mesh: makeBox(len * 0.26 * shrink, stern.height, beam * 0.72 * shrink, d % 2 ? p.cabin : p.deck),
+      t: { pos: [-len * (0.32 + d * 0.012), castleY, 0] },
+    });
+    castleY += stern.height;
+  }
+  // Taffrail cap on top of the stack
   parts.push({
-    mesh: makeBox(len * 0.26, 0.62, beam * 0.72, p.deck),
-    t: { pos: [-len * 0.32, deckY, 0] },
-  });
-  parts.push({
-    mesh: makeBox(len * 0.15, 0.7, beam * 0.46, p.cabin),
-    t: { pos: [-len * 0.35, deckY + 0.62, 0] },
-  });
-  parts.push({
-    mesh: makeBox(len * 0.17, 0.14, beam * 0.52, p.stripe),
-    t: { pos: [-len * 0.35, deckY + 1.32, 0] },
+    mesh: makeBox(len * 0.2, 0.14, beam * 0.56, p.stripe),
+    t: { pos: [-len * 0.34, castleY, 0] },
   });
 
-  const mastH = cfg.mastH || len * 0.8;
-  const mastX = -len * 0.03;
+  if (cfg.forecastle) {
+    parts.push({
+      mesh: makeBox(len * 0.16, 0.55, beam * 0.6, p.deck),
+      t: { pos: [len * 0.33, deckY, 0] },
+    });
+  }
+
   const mastBase = deckY;
+  const baseMastH = cfg.mastH || len * 0.8;
+  let tallest = null;
 
-  parts.push({
-    mesh: makePrism(0.22, 0.13, mastH, 6, p.mast),
-    t: { pos: [mastX, mastBase, 0] },
+  masts.forEach(function (m) {
+    const mastX = len * m.xFrac;
+    const mastH = baseMastH * m.heightFrac;
+    const yardY = mastBase + mastH * m.yardFrac;
+
+    parts.push({
+      mesh: makePrism(0.22, 0.13, mastH, 6, p.mast),
+      t: { pos: [mastX, mastBase, 0] },
+    });
+    parts.push({
+      mesh: makeBox(0.2, 0.2, beam * (m.sailW + 0.12), p.mast),
+      t: { pos: [mastX, yardY, 0] },
+    });
+
+    if (!cfg.furled) {
+      // Main course: square sail hung from the yard.
+      parts.push({
+        mesh: makeSail(beam * m.sailW, mastH * 0.44, cfg.bulge == null ? 0.9 : cfg.bulge, p.sail, 5, 4),
+        t: { pos: [mastX - 0.3, yardY - mastH * 0.44, 0], rotY: Math.PI / 2 },
+      });
+      if (m.topsail) {
+        parts.push({
+          mesh: makeSail(beam * m.sailW * 0.7, mastH * 0.2, 0.55, p.sailAlt, 4, 3),
+          t: { pos: [mastX - 0.22, yardY + 0.06, 0], rotY: Math.PI / 2 },
+        });
+      }
+    }
+
+    if (!tallest || mastBase + mastH > tallest.top) {
+      tallest = { x: mastX, top: mastBase + mastH };
+    }
   });
 
-  const yardY = mastBase + mastH * 0.62;
-  parts.push({
-    mesh: makeBox(0.2, 0.2, beam * 1.72, p.mast),
-    t: { pos: [mastX, yardY, 0] },
-  });
-
+  // Jib: strung from the bowsprit tip up to the foremost mast.
+  const foremost = masts.reduce(function (a, b) { return b.xFrac > a.xFrac ? b : a; });
   if (!cfg.furled) {
-    // Main course: square sail hung from the yard, a little wider than the beam.
+    const foreX = len * foremost.xFrac;
+    const foreH = baseMastH * foremost.heightFrac;
     parts.push({
-      mesh: makeSail(beam * 1.6, mastH * 0.44, cfg.bulge == null ? 0.9 : cfg.bulge, p.sail, 5, 4),
-      t: { pos: [mastX - 0.3, yardY - mastH * 0.44, 0], rotY: Math.PI / 2 },
-    });
-    // Topsail above the yard
-    parts.push({
-      mesh: makeSail(beam * 1.12, mastH * 0.2, 0.55, p.sailAlt, 4, 3),
-      t: { pos: [mastX - 0.22, yardY + 0.06, 0], rotY: Math.PI / 2 },
-    });
-    // Jib: triangular, strung from the bowsprit tip up to the mast.
-    parts.push({
-      mesh: makeTriSail(len * 0.66, depth + 0.5, mastX + 0.3, mastBase + mastH * 0.58, len * 0.18, deckY + 0.35, 0.6, p.sail, 3),
+      mesh: makeTriSail(len * 0.66, depth + 0.5, foreX + 0.3, mastBase + foreH * 0.58, len * 0.18, deckY + 0.35, 0.6, p.sail, 3),
       t: {},
     });
   }
@@ -92,10 +141,10 @@ function buildShip(cfg) {
     t: { pos: [len * 0.46, depth + 0.45, 0], rotZ: -Math.PI / 2 + 0.26 },
   });
 
-  // Masthead pennant — narrow, so it reads as a flag rather than a panel.
+  // Masthead pennant on the tallest mast — narrow, so it reads as a flag.
   parts.push({
     mesh: makeSail(1.5, 0.5, 0.14, p.flag, 3, 1),
-    t: { pos: [mastX + 0.72, mastBase + mastH - 0.75, 0], rotY: Math.PI / 2 },
+    t: { pos: [tallest.x + 0.72, tallest.top - 0.75, 0], rotY: Math.PI / 2 },
   });
 
   return bakeParts(parts, {

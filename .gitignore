@@ -1,0 +1,10 @@
+# Built mockup pages — regenerate with `python3 prototype/build.py`
+prototype/*.html
+!prototype/*.src.html
+
+# Subsetted webfonts, inlined into the built pages
+# — regenerate with `bash prototype/make-fonts.sh`
+fonts/
+
+# Scratch renders and screenshots
+prototype/_*
