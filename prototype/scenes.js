@@ -260,6 +260,179 @@ function sceneWeather(weatherId) {
   return weatherScene(w, { eye: [-21, 10.5, -4], target: [4, 5.2, 26], fov: 52 }, m);
 }
 
+/* --- look-directed combat scenes ---
+
+   The Black Flag Resynced scheme: camera yaw relative to the ship's heading
+   picks the armed weapon. See controls.src.html for the full writeup; this
+   is the shared geometry and the arc table both the compass-rose diagram and
+   the puppeteer tiling check read from, so there is exactly one place the
+   arc boundaries are defined. */
+
+// Sector arcs, degrees off the bow, continuous domain (deliberately not
+// wrapped to +-180 -- cos/sin handle any angle, and a continuous domain
+// means no sector has to be special-cased at the wrap seam). 0 = bow,
+// +90 = starboard, +-180 = stern, -90 = port.
+const LOOK_ARCS = [
+  { id: 'bow', label: 'Bow Chasers', from: -30, to: 30 },
+  { id: 'starboard', label: 'Starboard Broadside', from: 30, to: 150 },
+  { id: 'stern', label: 'Drop Weapons', from: 150, to: 210 },
+  { id: 'port', label: 'Port Broadside', from: 210, to: 330 },
+];
+const LOOK_HYSTERESIS_DEG = 4;
+
+function inLookArc(bearingDeg, arc, pad) {
+  for (const off of [-360, 0, 360]) {
+    const b = bearingDeg + off;
+    if (b >= arc.from - pad && b <= arc.to + pad) return true;
+  }
+  return false;
+}
+
+// Sticky sector pick: the currently-armed sector keeps its grip on the
+// bearing until the camera clears its hysteresis band, so a look direction
+// resting on a seam cannot flicker between two armed weapons.
+function armedSectorFor(bearingDeg, lastId) {
+  if (lastId) {
+    const cur = LOOK_ARCS.find(function (a) { return a.id === lastId; });
+    if (cur && inLookArc(bearingDeg, cur, LOOK_HYSTERESIS_DEG)) return lastId;
+  }
+  const hit = LOOK_ARCS.find(function (a) { return inLookArc(bearingDeg, a, 0); });
+  return hit ? hit.id : lastId;
+}
+
+// The look-sector panels share one player ship and one set of three
+// opponents -- only the camera changes between panels, so the four renders
+// are a fair test of "does this look direction show the right fight."
+// Positions are [bearing off the bow in degrees, range in metres]; the port
+// sector deliberately has no opponent in it (see controls.src.html) so that
+// panel can depict the off-screen target indicator instead.
+const LOOK_PLAYER_CLASS = 'brig';
+const LOOK_OPPONENTS = {
+  ahead: { cls: 'frigate', bearing: 15, range: 95 },
+  abeam: { cls: 'sloop', bearing: 85, range: 68 },
+  astern: { cls: 'brig', bearing: 165, range: 78 },
+};
+
+// Where the camera sits, as a bearing off the bow -- deliberately not the
+// bearing directly opposite the look direction. A camera parked exactly
+// opposite the look bearing puts the player hull dead broadside (square
+// sails edge-on) for the beam sectors and dead bow-on (hull foreshortened)
+// for the stern sector -- the same trap sceneClassSilhouette measured its
+// way around at ~55 degrees off axis. A 35-degree pull toward the look
+// bearing keeps a three-quarter view of the hull in every panel.
+const LOOK_ORBIT_BEARING = { bow: 145, starboard: -55, stern: 35, port: 55 };
+const LOOK_SECTOR_CENTER = { bow: 0, starboard: 90, stern: 180, port: -90 };
+
+function lookDirDeg(bearingDeg) {
+  const r = (bearingDeg * Math.PI) / 180;
+  return [Math.cos(r), 0, Math.sin(r)];
+}
+
+function sceneLook(sector) {
+  const geo = SHIP_CLASSES[LOOK_PLAYER_CLASS].geo;
+  const len = geo.len;
+
+  const m = [oceanMesh(30, 1.0, 51)];
+  m.push.apply(m, buildClassShip(LOOK_PLAYER_CLASS, {
+    pos: [0, null, 0], rotY: 0, heel: 0.05, palette: PLAYER_SHIP, seed: 4,
+  }));
+  Object.keys(LOOK_OPPONENTS).forEach(function (key, i) {
+    const o = LOOK_OPPONENTS[key];
+    const dir = lookDirDeg(o.bearing);
+    m.push.apply(m, buildClassShip(o.cls, {
+      pos: [dir[0] * o.range, null, dir[2] * o.range], rotY: 2.5 - i * 0.3, heel: -0.05,
+      palette: ENEMY_SHIP, seed: 11 + i,
+    }));
+  });
+
+  const R = 1.6 * len;
+  const H = 0.62 * len;
+  const lookY = geo.depth - geo.draft + 3.4;
+  const eyeDir = lookDirDeg(LOOK_ORBIT_BEARING[sector]);
+  const eye = [eyeDir[0] * R, H, eyeDir[2] * R];
+
+  // Aim the camera at the sector's own opponent when it has one; the port
+  // sector has none, so it just looks out along its bearing at open water --
+  // the off-screen indicator carries the rest of the story.
+  const opp = LOOK_OPPONENTS[sector === 'bow' ? 'ahead' : sector === 'starboard' ? 'abeam' : sector === 'stern' ? 'astern' : null];
+  const centerDir = lookDirDeg(LOOK_SECTOR_CENTER[sector]);
+  let target;
+  if (opp) {
+    const oppDir = lookDirDeg(opp.bearing);
+    const oppPos = [oppDir[0] * opp.range, lookY, oppDir[2] * opp.range];
+    const LEAD = 0.32;
+    target = [oppPos[0] * LEAD, lookY, oppPos[2] * LEAD];
+  } else {
+    target = [centerDir[0] * 40, lookY, centerDir[2] * 40];
+  }
+
+  return baseScene(
+    { eye: eye, target: target, fov: 54 },
+    m,
+    [{ x: 0.2, y: 0.13, s: 0.11, seed: 5, alpha: 0.85 }, { x: 0.7, y: 0.1, s: 0.12, seed: 13, alpha: 0.78 }],
+  );
+}
+
+/* Mortar mode: held modifier, any look direction. High, steep-angle spotter
+   framing over the player's shoulder -- the overhead reticle in the HUD
+   layer is what actually sells "indirect," this just needs an extended
+   target to justify it. */
+function sceneMortar() {
+  const geo = SHIP_CLASSES[LOOK_PLAYER_CLASS].geo;
+  const len = geo.len;
+  const m = [oceanMesh(34, 1.0, 63)];
+  m.push.apply(m, buildClassShip(LOOK_PLAYER_CLASS, {
+    pos: [0, null, 0], rotY: 0, heel: 0.03, palette: PLAYER_SHIP, seed: 4,
+  }));
+  // Placed past effective broadside range but well inside the arc a lobbed
+  // shell can still reach -- the situation mortars exist for.
+  const dir = lookDirDeg(35);
+  m.push.apply(m, buildClassShip('galleon', {
+    pos: [dir[0] * 190, null, dir[2] * 190], rotY: 4.4, heel: 0.02, palette: ENEMY_SHIP, seed: 21,
+  }));
+  // Same over-the-shoulder proportions as sceneLook (bow's orbit bearing),
+  // just pitched higher -- a spotter angle still has to keep the own hull
+  // in frame, or there is nothing to read the overhead reticle against.
+  const eyeDir = lookDirDeg(145);
+  const eye = [eyeDir[0] * 1.7 * len, 1.3 * len, eyeDir[2] * 1.7 * len];
+  const target = [dir[0] * 45, geo.depth + 4, dir[2] * 45];
+  return baseScene({ eye: eye, target: target, fov: 52 }, m, [
+    { x: 0.24, y: 0.1, s: 0.1, seed: 6, alpha: 0.8 },
+  ], { color: HAZE, start: 140, end: 460 });
+}
+
+/* Ram dash: close, low, bow-first -- the framing sells committing to a
+   collision course. Depicted, not simulated: see GAME_DESIGN.md. */
+function sceneRam() {
+  const geo = SHIP_CLASSES[LOOK_PLAYER_CLASS].geo;
+  const len = geo.len;
+  const m = [oceanMesh(26, 1.3, 74)];
+  m.push.apply(m, buildClassShip(LOOK_PLAYER_CLASS, {
+    pos: [0, null, 0], rotY: 0, heel: 0, palette: PLAYER_SHIP, seed: 4,
+  }));
+  m.push.apply(m, buildClassShip('sloop', {
+    pos: [len * 1.55, null, len * 0.28], rotY: 1.9, heel: -0.08, palette: ENEMY_SHIP, seed: 31,
+  }));
+  // The same chase-cam bearing sceneLook uses for 'bow' (145 deg -- astern
+  // quarter), pulled in tighter and raised enough to clear the own sails --
+  // a camera standing on the deck put the hull too near the frustum to read
+  // and left the target hidden behind the own rigging.
+  const eyeDir = lookDirDeg(145);
+  const R = 1.3 * len, H = 0.75 * len;
+  const eye = [eyeDir[0] * R, H, eyeDir[2] * R];
+  const oppPos = [len * 1.55, -SHIP_CLASSES.sloop.geo.draft, len * 0.28];
+  const ownLook = [0, geo.depth - geo.draft + 3.4, 0];
+  const LEAD = 0.55;
+  const target = [
+    ownLook[0] + LEAD * (oppPos[0] - ownLook[0]),
+    ownLook[1] + LEAD * (oppPos[1] - ownLook[1]),
+    ownLook[2] + LEAD * (oppPos[2] - ownLook[2]),
+  ];
+  return baseScene({ eye: eye, target: target, fov: 56 }, m, [
+    { x: 0.66, y: 0.14, s: 0.13, seed: 9, alpha: 0.82 },
+  ]);
+}
+
 /* Render helper: draws once, and re-draws on resize (debounced). Static by
    design — these are mockups, and a still frame is what gets reviewed. */
 function mountScene(canvasId, sceneFactory) {

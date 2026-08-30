@@ -14,7 +14,7 @@ PARTS = {
     '__SCENES_JS__': BASE / 'scenes.js',
 }
 
-for name in ('moodboard', 'hud', 'classes', 'weather'):
+for name in ('moodboard', 'hud', 'classes', 'weather', 'controls'):
     src = BASE / (name + '.src.html')
     if not src.exists():
         continue

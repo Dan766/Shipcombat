@@ -8,9 +8,12 @@ It exists so the art direction is executable and reviewable rather than
 described in prose, and so the lighting values in `GAME_DESIGN.md` are
 grounded in something that actually renders.
 
-> **Frozen reference.** The ship class and weather tables here are a snapshot.
-> `game/src/data/` is the source of truth now; change values there. The
-> geometry in this directory is still the origin of the meshes the game
+> **Frozen reference.** The ship class and weather *tables* here are a
+> snapshot — `game/src/data/` is the source of truth now; change values
+> there. "Frozen" is about that data, not about this directory's job: it is
+> still the mockup tool, and new pages (like `controls.html`, the
+> look-directed camera/control scheme) get built here first, same as every
+> page before it. The geometry is still the origin of the meshes the game
 > builds, and the two should be kept visually in step.
 
 ## Files
@@ -26,6 +29,7 @@ grounded in something that actually renders.
 | `hud.src.html` | Combat HUD page (source, before font inlining) |
 | `classes.src.html` | Ship classes page (source, before font inlining) |
 | `weather.src.html` | Weather page (source, before font inlining) |
+| `controls.src.html` | Camera & control scheme page — look-sector arcs, spread, mortar/swivel/brace/ram (source, before font inlining) |
 | `build.py` | Inlines fonts and the JS above into standalone `.html` files |
 | `make-fonts.sh` | Downloads and subsets the webfonts into `../fonts/fontfaces.css` |
 
@@ -41,7 +45,7 @@ gitignored. From a fresh clone:
 
 ```
 bash prototype/make-fonts.sh   # writes ../fonts/fontfaces.css (needs fonttools + brotli)
-python3 prototype/build.py     # writes moodboard.html, hud.html, classes.html, weather.html
+python3 prototype/build.py     # writes moodboard.html, hud.html, classes.html, weather.html, controls.html
 ```
 
 Fonts are subsetted to the glyphs the pages actually use — the full TTFs are
