@@ -31,7 +31,9 @@ export function newBotMemory(): BotMemory {
 }
 
 export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory): Command {
-  const idle: Command = { seq: mem.seq++, turn: 0, sail: 1, fire: 0, aimRange: PREFERRED_RANGE, ammo: 'round' };
+  const idle: Command = {
+    seq: mem.seq++, turn: 0, sail: 1, fire: null, aimRange: PREFERRED_RANGE, ammo: 'round', aimHold: 0,
+  };
   if (!target || target.sinking > 0 || self.sinking > 0) return idle;
 
   const dx = target.x - self.x;
@@ -66,9 +68,10 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
     seq: mem.seq++,
     turn,
     sail: 1,
-    fire: inArc && ready && inRange ? side : 0,
+    fire: inArc && ready && inRange ? (side < 0 ? 'port' : 'starboard') : null,
     aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
     ammo: useChain ? 'chain' : 'round',
+    aimHold: 0,
   };
 }
 

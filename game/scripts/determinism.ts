@@ -18,9 +18,12 @@ function makeCommands(count: number): Command[] {
   for (let i = 0; i < count; i++) {
     a = (a * 1664525 + 1013904223) >>> 0;
     const r = a / 4294967296;
-    // Fire whenever the guns bear-ish, alternating sides, so the log drives a
+    // Fire whenever the guns bear-ish, cycling mounts, so the log drives a
     // real fight rather than a pleasure cruise.
-    const fire: -1 | 0 | 1 = i % 40 === 0 ? 1 : i % 67 === 0 ? -1 : 0;
+    const fire: Command['fire'] = i % 40 === 0 ? 'starboard'
+      : i % 67 === 0 ? 'port'
+        : i % 101 === 0 ? 'bow'
+          : i % 149 === 0 ? 'stern' : null;
     cmds.push({
       seq: i,
       turn: r * 2 - 1,
@@ -28,6 +31,7 @@ function makeCommands(count: number): Command[] {
       fire,
       aimRange: 60 + r * 160,
       ammo: r > 0.6 ? 'chain' : 'round',
+      aimHold: r,
     });
   }
   return cmds;

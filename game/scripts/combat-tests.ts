@@ -11,6 +11,7 @@
 import { World } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, rigEfficiency } from '../src/sim/combat.ts';
+import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
 import { TICK_HZ } from '../src/sim/types.ts';
@@ -22,7 +23,7 @@ function check(name: string, ok: boolean, detail = ''): void {
 }
 
 const hold = (over: Partial<Command> = {}): Command => ({
-  seq: 0, turn: 0, sail: 0, fire: 0, aimRange: 120, ammo: 'round', ...over,
+  seq: 0, turn: 0, sail: 0, fire: null, aimRange: 120, ammo: 'round', aimHold: 0, ...over,
 });
 
 /* --- ballistics ------------------------------------------------------- */
@@ -65,7 +66,7 @@ console.log('\nfiring arc');
   w.ships[1].speed = 0;
 
   for (let t = 0; t < TICK_HZ * 8; t++) {
-    w.applyCommand(1, hold({ fire: t === 0 ? 1 : 0, aimRange: 120 }));
+    w.applyCommand(1, hold({ fire: t === 0 ? 'starboard' : null, aimRange: 120 }));
     w.step();
   }
   check('target dead ahead takes no damage from a broadside',
@@ -76,10 +77,25 @@ console.log('\nfiring arc');
   w2.addShip(1, 'frigate', 0, 0, 0);
   w2.addShip(2, 'brig', 120, 0, 0);       // off the starboard beam
   for (let t = 0; t < TICK_HZ * 8; t++) {
-    w2.applyCommand(1, hold({ fire: t === 0 ? 1 : 0, aimRange: 120 }));
+    w2.applyCommand(1, hold({ fire: t === 0 ? 'starboard' : null, aimRange: 120 }));
     w2.step();
   }
   check('target on the beam is hit', w2.ships[1].hull < 1, `hull ${w2.ships[1].hull.toFixed(3)}`);
+
+  // Bow chasers are the one way to hit a target dead ahead — the whole point
+  // of the look-directed sector scheme. Same geometry as the first check,
+  // opposite expectation.
+  const w3 = new World({ weather: 'clear' });
+  w3.addShip(1, 'frigate', 0, 0, 0);
+  w3.addShip(2, 'brig', 0, 120, 0);       // dead ahead
+  for (let t = 0; t < TICK_HZ * 8; t++) {
+    w3.applyCommand(1, hold({ fire: t === 0 ? 'bow' : null, aimRange: 120 }));
+    w3.step();
+  }
+  check('bow chasers hit a target dead ahead', w3.ships[1].hull < 1,
+    `hull ${w3.ships[1].hull.toFixed(3)}`);
+  check('bow chasers damage rigging even when ammo is round shot (always chain)',
+    w3.ships[1].rig < 1, `rig ${w3.ships[1].rig.toFixed(3)}`);
 }
 
 /* --- ammo types ------------------------------------------------------- */
@@ -90,7 +106,7 @@ console.log('\nammo');
     w.addShip(1, 'frigate', 0, 0, 0);
     w.addShip(2, 'brig', 120, 0, 0);
     for (let t = 0; t < TICK_HZ * 8; t++) {
-      w.applyCommand(1, hold({ fire: t === 0 ? 1 : 0, aimRange: 120, ammo }));
+      w.applyCommand(1, hold({ fire: t === 0 ? 'starboard' : null, aimRange: 120, ammo }));
       w.step();
     }
     return { hull: 1 - w.ships[1].hull, rig: 1 - w.ships[1].rig };
@@ -144,7 +160,7 @@ console.log('\nsinking');
     // gunner has to keep ranging, exactly as a player does.
     const target = w.ships[1];
     const range = Math.hypot(target.x - w.ships[0].x, target.z - w.ships[0].z);
-    w.applyCommand(1, hold({ fire: 1, aimRange: range }));
+    w.applyCommand(1, hold({ fire: 'starboard', aimRange: range }));
     w.applyCommand(2, hold({ sail: 0 }));
     w.step();
     minHull = Math.min(minHull, w.ships[1].hull);
@@ -157,7 +173,7 @@ console.log('\nsinking');
   // shot again and the check measures nothing.
   const sinkingFor = w.ships[1].sinking;
   for (let t = 0; t <= sinkingFor + 2; t++) {
-    w.applyCommand(1, hold({ fire: 0 }));
+    w.applyCommand(1, hold({ fire: null }));
     w.step();
   }
   check('sunk ship respawns at full health',
@@ -193,9 +209,9 @@ console.log('\ncommand coalescing');
   w.addShip(1, 'frigate', 0, 0, 0);
   w.addShip(2, 'brig', 120, 0, 0);
 
-  w.applyCommand(1, hold({ fire: 1, aimRange: 120 }));
-  w.applyCommand(1, hold({ fire: 0, aimRange: 120 })); // later frame, no key
-  w.applyCommand(1, hold({ fire: 0, aimRange: 120 }));
+  w.applyCommand(1, hold({ fire: 'starboard', aimRange: 120 }));
+  w.applyCommand(1, hold({ fire: null, aimRange: 120 })); // later frame, no key
+  w.applyCommand(1, hold({ fire: null, aimRange: 120 }));
   w.step();
   const fired = w.snapshot().events.some((e) => e.kind === 'muzzle');
   check('fire order survives being coalesced with later commands', fired);
@@ -241,6 +257,55 @@ console.log('\nvolley weight');
     SHIP_CLASSES.brig.combat.gunsPerSide > SHIP_CLASSES.sloop.combat.gunsPerSide);
   check('heavier classes reload slower',
     SHIP_CLASSES.galleon.combat.reloadSec > SHIP_CLASSES.sloop.combat.reloadSec);
+}
+
+/* --- stern drop weapon -------------------------------------------------- */
+console.log('\ndrop weapon');
+{
+  // A ship following close astern should take blast damage when the charge
+  // lands; one well outside the radius should not — this is what the stern
+  // sector buys over a plain cannonball.
+  function dropInto(followerRange: number): number {
+    const w = new World({ weather: 'clear' });
+    w.addShip(1, 'brig', 0, 0, 0);               // heading along +Z
+    w.addShip(2, 'brig', 0, -followerRange, 0);  // directly astern
+    for (let t = 0; t < TICK_HZ * 6; t++) {
+      w.applyCommand(1, hold({ fire: t === 0 ? 'stern' : null }));
+      w.applyCommand(2, hold({ sail: 0 }));
+      w.step();
+    }
+    return 1 - w.ships[1].hull;
+  }
+
+  const close = dropInto(5);
+  const far = dropInto(80);
+  check('a ship following close astern takes drop-weapon damage', close > 0, `hull loss ${close.toFixed(3)}`);
+  check('a ship well clear of the blast radius takes none', far === 0, `hull loss ${far.toFixed(3)}`);
+}
+
+/* --- look-directed sector arcs ------------------------------------------ */
+console.log('\nlook sectors');
+{
+  // Same invariant verify-controls-mockup.mjs checks against the prototype's
+  // copy of this arithmetic — asserted here against the real lookSector.ts
+  // so the two tables can't quietly drift apart.
+  const total = LOOK_ARCS.reduce((sum, a) => sum + (a.to - a.from), 0);
+  check('LOOK_ARCS tiles 360 degrees exactly', total === 360, `total ${total}`);
+
+  let bad = 0;
+  for (let b = -180; b <= 180; b += 0.5) {
+    const picked = armedMountFor(b, null);
+    if (!LOOK_ARCS.some((a) => a.id === picked)) bad++;
+  }
+  check('every bearing resolves to a covered sector with no prior state', bad === 0, `${bad} uncovered`);
+
+  // Hysteresis: a bearing resting exactly on a seam must not flicker —
+  // whichever sector currently holds it keeps it until it clears the band.
+  const seam = 30; // bow/starboard boundary
+  check('a seam bearing keeps the previously-armed sector',
+    armedMountFor(seam, 'bow') === 'bow' && armedMountFor(seam, 'starboard') === 'starboard');
+  check('a bearing well clear of the seam ignores stale state',
+    armedMountFor(90, 'bow') === 'starboard');
 }
 
 console.log('');

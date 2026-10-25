@@ -7,7 +7,7 @@ _Living document. This is the starting point for requirements — expect it to c
 - [Combat HUD](https://claude.ai/code/artifact/3b0a7c9f-8096-49cf-9254-5d7af34e307d) — in-combat screen over the actual third-person camera framing.
 - [Ship Classes](https://claude.ai/code/artifact/a8cf2458-6788-4f9a-bf19-f927bc6f50d3) — the four-class roster at true relative scale, with stats and a silhouette readability test.
 - [Weather](https://claude.ai/code/artifact/c1bf5d5a-2a5a-4e57-a3f6-4d2758fa89c3) — five sea states, the same shot under each, with their gameplay effects.
-- [Camera & Controls](https://claude.ai/code/artifact/7d30beea-d355-41af-8f40-28659deb5e3c) — proposed look-directed weapon select: sector arcs, hold-to-aim spread, mortar/swivel/brace/ram.
+- [Camera & Controls](https://claude.ai/code/artifact/7d30beea-d355-41af-8f40-28659deb5e3c) — look-directed weapon select: sector arcs, hold-to-aim spread. Shipped in `game/`; mortar/swivel/brace/ram are still mockup-only (see below).
 
 ## Overview
 
@@ -47,37 +47,36 @@ able to fill either role.
 
 ## Camera & Controls
 
-**Look-directed weapon select** — proposed, not yet implemented. `game/`
-still runs the fixed scheme (astern chase-cam, `Q`/`E` broadsides) described
-in `game/README.md`. Full scheme, HUD mockups and the control map:
+**Look-directed weapon select** — shipped in `game/`. The direction the
+camera looks picks the armed weapon. Broadsides stay **fixed batteries** —
+steering is still what aims them, the rule the whole duel rests on — but the
+camera is free-look, the bow and stern have their own armaments, and holding
+aim turns the volley spread from a constant into something the player
+controls. Full scheme, HUD mockups and the control map (mortar/swivel/
+brace/ram included, still not built — see below):
 [Camera & Controls](https://claude.ai/code/artifact/7d30beea-d355-41af-8f40-28659deb5e3c).
 
-The direction the camera looks picks the armed weapon. Broadsides stay
-**fixed batteries** — steering is still what aims them, the rule the whole
-duel rests on — but the camera goes free-look, the bow and stern get their
-own armaments, and holding aim turns the volley spread from a constant into
-something the player controls.
-
-- **Camera**: free-look, 360° orbit. Camera yaw relative to heading, θ,
-  selects the armed weapon:
+- **Camera**: free-look, 360° orbit, pointer-locked to the mouse
+  (`game/src/input/mouse.ts`). Camera yaw relative to heading, θ, selects the
+  armed weapon (`game/src/sim/lookSector.ts`):
 
   | Sector | Arc | Armament |
   | --- | --- | --- |
-  | Bow | \|θ\| ≤ 30° | Bow chasers — 2 guns, fast reload, chain by default |
+  | Bow | \|θ\| ≤ 30° | Bow chasers — 2 guns, fast reload, always chain |
   | Starboard | 30° < θ < 150° | Starboard broadside |
   | Port | -150° < θ < -30° | Port broadside |
-  | Stern | \|θ\| ≥ 150° | Drop weapons — fire barrels, mines |
+  | Stern | \|θ\| ≥ 150° | Drop weapon — one fire-barrel charge |
 
-  Arcs tile 360° exactly, with a few degrees of hysteresis at each boundary
-  so a camera resting on a seam does not flicker the armed weapon. Mortars
-  and swivel guns are held-modifier modes available from any look
-  direction — not sectors.
+  Arcs tile 360° exactly, with 4° of hysteresis at each boundary so a camera
+  resting on a seam does not flicker the armed weapon — asserted by
+  `game/scripts/combat-tests.ts`. Mortars and swivel guns remain
+  held-modifier modes available from any look direction — not sectors — and
+  are not built.
 - **Two HUD elements the scheme requires that free-look breaks otherwise**:
-  an **off-screen target indicator** (the old fixed camera auto-swung toward
-  the fight; free-look means the HUD has to point at what's out of frame
-  instead) and a **heading ribbon** across the top (steering has to stay
-  possible while looking abeam, or the tension the scheme is built on does
-  not work).
+  an **off-screen target indicator** — a camera-relative arrow pinned to
+  whichever edge the target has fallen off, since a free camera no longer
+  auto-swings toward the fight — and a **heading ribbon** across the top, so
+  steering stays legible while looking abeam. Both in `game/src/render/hud.ts`.
 - **Sailing**: heading/throttle control, with sail trim and speed affected
   by wind direction (upwind = slower, downwind = faster) — wind becomes a
   tactical element rather than just an aesthetic detail. Wind *strength*
@@ -94,7 +93,8 @@ something the player controls.
   in arc), and a ram dash. Ramming specifically needs hull-to-hull
   collision, which does not exist yet — `game/README.md` lists it as
   deliberately deferred, and it is the single largest follow-on cost this
-  scheme creates.
+  scheme creates. The enemy AI (`game/src/sim/bot.ts`) also doesn't use any
+  of the new mounts yet — it stays broadside-only.
 - **Stretch, still undesigned**: grapeshot (needs a crew system to act on
   first), boarding.
 
@@ -124,8 +124,8 @@ mouse aim. A target dead ahead simply cannot be shot.
   and barely scratches timber — it is how you catch something faster than
   you, and the only reason to load it.
 
-Today, a target dead ahead cannot be shot at all. The proposed bow/stern
-chaser sectors above (Camera & Controls) would change that — not yet built.
+Broadsides still cannot be swung onto a target dead ahead — that's bow
+chasers' job now (Camera & Controls, above).
 
 | Class | Guns/side | Reload | Volley (round) | Hull HP | Rig HP |
 | --- | --- | --- | --- | --- | --- |
@@ -140,24 +140,25 @@ Galleon sinks a Sloop in about two connecting volleys, while a Sloop needs
 the tin — the Sloop's answer is to refuse the trade, not to win it — and
 whether that is *fun* is precisely the thing that needs playtesting.
 
-#### Bow chasers and drop weapons (proposed)
+#### Bow chasers and drop weapons
 
-Two weapon groups the look-directed scheme adds. Not yet in `game/`, and
-unlike the broadside table above, not yet tuned or playtested at all:
+Two weapon groups the look-directed scheme adds, in `game/src/sim/combat.ts`.
+Numbers below are starting points, same as the broadside table — not tuned
+or playtested:
 
 | Group | Guns | Reload | Role |
 | --- | --- | --- | --- |
-| Bow chasers | 2, fixed forward | Fast — roughly half a broadside's | Chases a fleeing target; chain by default, since catching is the point, not sinking |
-| Drop weapons | 1 charge | Slow, single-use per charge | Fire barrels / mines dropped astern — punishes a ship following too close |
+| Bow chasers | 2, fixed forward | Fast — half a broadside's | Chases a fleeing target; always chain, since catching is the point, not sinking |
+| Drop weapon | 1 charge | Slow — 1.5x a broadside's | A fire barrel dropped astern, falling almost straight down into the wake; detonates in a ~10 m radius on water contact — punishes a ship following too close, not an aimed shot |
 
-#### Hold-to-aim spread (proposed)
+#### Hold-to-aim spread
 
 Tapping fire sends a volley at the standing spread (`BEARING_SPREAD` = 0.045
 rad, `RANGE_SPREAD` = 0.035, `game/src/sim/combat.ts`) — forgiving of
 bearing error, right for a target that is close and jinking. Holding aim
-(RMB) narrows both toward roughly a third of that over about a second — a
+(RMB) narrows both toward a third of that over about a second — a
 placeholder curve, not a tuned one — trading time spent broadside-on for a
-tighter pattern at range. This is the proposed answer to the open question
+tighter pattern at range. This is the current answer to the open question
 below about whether fixed broadsides give enough aiming skill: real skill
 expression, without giving the guns any traverse.
 
@@ -345,19 +346,23 @@ differ only in numbers and silhouette.
       by design; the question is whether that reads as fair or as pointless.
 - [ ] Whether fixed broadsides plus a range-only reticle give enough aiming
       skill, or whether the guns need some traverse. Partially addressed by
-      the proposed hold-to-aim spread mechanic (see Gunnery) — real skill
-      expression without giving the guns traverse — but that is a design on
-      a mockup page, not a playtested mechanic, so the question stands until
-      it is one.
-- [ ] Whether one mouse can carry both free-look and hold-to-aim without a
-      second stick or button doing double duty — reads fine on paper, untested
-      with a controller.
+      the hold-to-aim spread mechanic (see Gunnery) — real skill expression
+      without giving the guns traverse — now playable in `game/`, but not yet
+      playtested by a human against another human, so the question stands
+      until it is.
+- [x] ~~Whether one mouse can carry both free-look and hold-to-aim without a
+      second stick or button doing double duty~~ — resolved for mouse/
+      keyboard: pointer-locked look, LMB fire, RMB hold-to-aim
+      (`game/src/input/mouse.ts`). Still untested with a controller.
 - [ ] Whether brace is strictly dominant once its telegraph exists — if it
       is free to hold indefinitely with no cost worse than what it already
-      imposes, there is no reason not to hold it on cooldown.
+      imposes, there is no reason not to hold it on cooldown. Unchanged —
+      brace is still not built.
 - [ ] Whether the 60° bow and stern arcs are wide enough to select reliably
       mid-fight, or whether a fast yaw swing overshoots past them under real
-      mouse input.
+      mouse input. The arcs and hysteresis are real now (`game/src/sim/
+      lookSector.ts`), so this is playtestable rather than theoretical — it
+      just hasn't been playtested yet.
 - [ ] Grape shot and a crew damage track — deferred until crew does something.
 - [ ] Whether weather is fixed for a match or shifts during one. Fixed is
       easier to balance and lets players pick a ship against known

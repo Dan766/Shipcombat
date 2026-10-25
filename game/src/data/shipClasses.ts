@@ -58,6 +58,11 @@ export interface CombatDef {
   hullHp: number;
   /** Rigging hit points. */
   rigHp: number;
+  /** Bow chasers: 2 fixed-forward guns, faster reload than a broadside —
+   *  for catching a fleeing target, not sinking it (always chain shot). */
+  bowChasers: { guns: number; reloadSec: number };
+  /** Stern drop weapon: one charge, slow reload, punishes a close follower. */
+  dropWeapon: { reloadSec: number };
 }
 
 export interface ShipClass {
@@ -88,7 +93,10 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 8,
     stats: { speed: 5, turn: 5, hull: 2, broadside: 2 },
     sail: { baseSpeed: 9.0, turnRate: 45, accel: 2.6 },
-    combat: { gunsPerSide: 4, reloadSec: 4.5, hullHp: 90, rigHp: 60 },
+    combat: {
+      gunsPerSide: 4, reloadSec: 4.5, hullHp: 90, rigHp: 60,
+      bowChasers: { guns: 2, reloadSec: 2.25 }, dropWeapon: { reloadSec: 6.75 },
+    },
     geo: {
       len: 16, beam: 4.1, depth: 2.5, draft: 1.15, gunPorts: 4, mastH: 15.4,
       sterncastle: { decks: 1, height: 0.5 },
@@ -107,7 +115,10 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 16,
     stats: { speed: 4, turn: 4, hull: 3, broadside: 3 },
     sail: { baseSpeed: 8.0, turnRate: 34, accel: 2.0 },
-    combat: { gunsPerSide: 8, reloadSec: 5.5, hullHp: 150, rigHp: 95 },
+    combat: {
+      gunsPerSide: 8, reloadSec: 5.5, hullHp: 150, rigHp: 95,
+      bowChasers: { guns: 2, reloadSec: 2.75 }, dropWeapon: { reloadSec: 8.25 },
+    },
     geo: {
       len: 21, beam: 6.0, depth: 3.1, draft: 1.5, gunPorts: 8, mastH: 16.5,
       sterncastle: { decks: 2, height: 0.58 },
@@ -129,7 +140,10 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 28,
     stats: { speed: 3, turn: 3, hull: 4, broadside: 4 },
     sail: { baseSpeed: 7.0, turnRate: 25, accel: 1.5 },
-    combat: { gunsPerSide: 14, reloadSec: 7.0, hullHp: 230, rigHp: 140 },
+    combat: {
+      gunsPerSide: 14, reloadSec: 7.0, hullHp: 230, rigHp: 140,
+      bowChasers: { guns: 2, reloadSec: 3.5 }, dropWeapon: { reloadSec: 10.5 },
+    },
     geo: {
       len: 27, beam: 7.4, depth: 3.8, draft: 1.8, gunPorts: 14, forecastle: true, mastH: 24.5,
       sterncastle: { decks: 2, height: 0.62 },
@@ -152,7 +166,10 @@ export const SHIP_CLASSES: Record<ShipClassId, ShipClass> = {
     guns: 44,
     stats: { speed: 2, turn: 1, hull: 5, broadside: 5 },
     sail: { baseSpeed: 5.5, turnRate: 16, accel: 1.0 },
-    combat: { gunsPerSide: 22, reloadSec: 9.0, hullHp: 340, rigHp: 200 },
+    combat: {
+      gunsPerSide: 22, reloadSec: 9.0, hullHp: 340, rigHp: 200,
+      bowChasers: { guns: 2, reloadSec: 4.5 }, dropWeapon: { reloadSec: 13.5 },
+    },
     geo: {
       len: 34, beam: 11.0, depth: 5.6, draft: 2.4, gunPorts: 22, gunDecks: 2,
       forecastle: true, beakhead: true, mastH: 27,

@@ -8,6 +8,8 @@
  * Pure functions — no world state, no engine. MUST NOT import Babylon.
  */
 
+import type { ProjectileAmmo } from './types.ts';
+
 export const GRAVITY = 9.81;
 /** Muzzle velocity in m/s. Gives a theoretical maximum of ~430 m. */
 export const MUZZLE_SPEED = 65;
@@ -39,7 +41,7 @@ export function timeOfFlight(range: number, speed = MUZZLE_SPEED): number {
 export interface Projectile {
   id: number;
   ownerId: number;
-  ammo: 'round' | 'chain';
+  ammo: ProjectileAmmo;
   x: number; y: number; z: number;
   vx: number; vy: number; vz: number;
   /** Ticks lived, so strays can be retired rather than flying forever. */

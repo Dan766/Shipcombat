@@ -12,7 +12,7 @@ import { SHIP_CLASSES, type ShipClassId } from '../data/shipClasses.ts';
 import { WEATHER, type WeatherId } from '../data/weather.ts';
 import { stepProjectile, type Projectile } from './ballistics.ts';
 import { botCommand, newBotMemory, type BotMemory } from './bot.ts';
-import { fireVolley, hitsShip, applyHit, rigEfficiency } from './combat.ts';
+import { fireVolley, fireDropWeapon, hitsShip, applyHit, rigEfficiency, DROP_RADIUS } from './combat.ts';
 import type { CombatEvent, Command, ControlMessage, ShipState, Snapshot } from './types.ts';
 import { TICK_HZ } from './types.ts';
 import { waveHeight } from './waves.ts';
@@ -68,7 +68,7 @@ export class World {
       id, cls, x, z, heading,
       speed: 0, sail: 1,
       hull: 1, rig: 1,
-      reloadPort: 1, reloadStbd: 1,
+      reloadPort: 1, reloadStbd: 1, reloadBow: 1, reloadStern: 1,
       sinking: 0,
       bot: isBot ? newBotMemory() : undefined,
       spawn: { x, z, heading },
@@ -88,7 +88,7 @@ export class World {
    */
   applyCommand(shipId: number, cmd: Command): void {
     const prev = this.pending.get(shipId);
-    if (prev && prev.fire !== 0 && cmd.fire === 0) {
+    if (prev && prev.fire != null && cmd.fire == null) {
       this.pending.set(shipId, { ...cmd, fire: prev.fire });
     } else {
       this.pending.set(shipId, cmd);
@@ -106,7 +106,7 @@ export class World {
         // A different ship is a different ship: reset its condition rather
         // than carrying a galleon's damage onto a sloop.
         ship.hull = 1; ship.rig = 1;
-        ship.reloadPort = 1; ship.reloadStbd = 1;
+        ship.reloadPort = 1; ship.reloadStbd = 1; ship.reloadBow = 1; ship.reloadStern = 1;
         ship.sinking = 0;
       }
     }
@@ -162,20 +162,33 @@ export class World {
       ship.x += Math.sin(ship.heading) * ship.speed * DT;
       ship.z += Math.cos(ship.heading) * ship.speed * DT;
 
-      // Reload both sides regardless of which one fired.
+      // Reload every mount regardless of which one fired.
       const perTick = DT / def.combat.reloadSec;
       ship.reloadPort = Math.min(1, ship.reloadPort + perTick);
       ship.reloadStbd = Math.min(1, ship.reloadStbd + perTick);
+      ship.reloadBow = Math.min(1, ship.reloadBow + DT / def.combat.bowChasers.reloadSec);
+      ship.reloadStern = Math.min(1, ship.reloadStern + DT / def.combat.dropWeapon.reloadSec);
 
-      if (cmd && cmd.fire !== 0) {
-        const side = cmd.fire;
-        const ready = side < 0 ? ship.reloadPort : ship.reloadStbd;
+      if (cmd && cmd.fire) {
+        const mount = cmd.fire;
+        const ready = mount === 'port' ? ship.reloadPort
+          : mount === 'starboard' ? ship.reloadStbd
+            : mount === 'bow' ? ship.reloadBow
+              : ship.reloadStern;
+
         if (ready >= 1) {
-          const volley = fireVolley(ship, side, cmd.aimRange, cmd.ammo, this.tick,
-            () => this.nextProjectileId++);
-          this.projectiles.push(...volley);
-          if (side < 0) ship.reloadPort = 0; else ship.reloadStbd = 0;
-          this.events.push({ kind: 'muzzle', shipId: ship.id, side });
+          if (mount === 'stern') {
+            this.projectiles.push(fireDropWeapon(ship, this.tick, () => this.nextProjectileId++));
+            ship.reloadStern = 0;
+          } else {
+            const volley = fireVolley(ship, mount, cmd.aimRange, cmd.ammo, cmd.aimHold, this.tick,
+              () => this.nextProjectileId++);
+            this.projectiles.push(...volley);
+            if (mount === 'port') ship.reloadPort = 0;
+            else if (mount === 'starboard') ship.reloadStbd = 0;
+            else ship.reloadBow = 0;
+          }
+          this.events.push({ kind: 'muzzle', shipId: ship.id, mount });
         }
       }
 
@@ -229,7 +242,22 @@ export class World {
         }
 
         if (!consumed && sy <= waveHeight(sx, sz, amp)) {
-          this.events.push({ kind: 'splash', x: sx, z: sz });
+          if (p.ammo === 'drop') {
+            // A fire barrel's blast reaches a radius rather than a point —
+            // it punishes a ship following too close, not a direct hit.
+            for (const ship of this.ships) {
+              if (ship.id === p.ownerId || ship.sinking > 0) continue;
+              if (Math.hypot(ship.x - sx, ship.z - sz) > DROP_RADIUS) continue;
+              const sank = applyHit(ship, 'drop');
+              if (sank && ship.sinking === 0) {
+                ship.sinking = SINK_TICKS;
+                this.events.push({ kind: 'sunk', shipId: ship.id });
+              }
+            }
+            this.events.push({ kind: 'dropBlast', x: sx, z: sz });
+          } else {
+            this.events.push({ kind: 'splash', x: sx, z: sz });
+          }
           consumed = true;
         }
       }
@@ -249,6 +277,8 @@ export class World {
     ship.rig = 1;
     ship.reloadPort = 1;
     ship.reloadStbd = 1;
+    ship.reloadBow = 1;
+    ship.reloadStern = 1;
   }
 
   snapshot(): Snapshot {
@@ -263,6 +293,7 @@ export class World {
         heading: s.heading, speed: s.speed, sail: s.sail,
         hull: s.hull, rig: s.rig,
         reloadPort: s.reloadPort, reloadStbd: s.reloadStbd,
+        reloadBow: s.reloadBow, reloadStern: s.reloadStern,
         sinking: s.sinking,
       })),
       projectiles: this.projectiles.map((p) => ({
@@ -278,7 +309,8 @@ export class World {
     const parts: Array<string | number> = [this.tick, this.weather, round(this.windFrom)];
     for (const s of [...this.ships].sort((a, b) => a.id - b.id)) {
       parts.push(s.id, s.cls, round(s.x), round(s.z), round(s.heading), round(s.speed),
-        round(s.sail), round(s.hull), round(s.rig), round(s.reloadPort), round(s.reloadStbd), s.sinking);
+        round(s.sail), round(s.hull), round(s.rig), round(s.reloadPort), round(s.reloadStbd),
+        round(s.reloadBow), round(s.reloadStern), s.sinking);
     }
     // Projectiles are exactly the sort of state that drifts, so they are in
     // the digest too.

@@ -13,18 +13,23 @@ npm run dev          # http://127.0.0.1:5173
 
 | | |
 | --- | --- |
+| mouse (click canvas to lock) | Free-look camera — yaw/pitch, 360° |
 | `A` / `D` | Steer |
 | `W` / `S` | Sail trim |
-| `Q` / `E` | Fire port / starboard broadside |
+| LMB | Fire whatever the look direction currently arms |
+| RMB (hold) | Aim — narrows volley spread over ~1s |
 | `R` | Toggle round / chain shot |
 | wheel, `[` `]` | Aim range (25–250 m) |
 | `C` | Cycle ship class |
 | `1`–`5` | Weather |
 | `V` | Cycle simulated latency |
 
-Guns are fixed broadside batteries. You cannot aim them across the bow — the
-reticle sets *range*, and bearing comes from steering the ship. A target dead
-ahead cannot be shot at all.
+Where the camera looks picks the armed weapon — bow chasers dead ahead,
+broadsides abeam, the stern drop weapon astern, each with its own reload
+(`game/src/sim/lookSector.ts`). Broadsides are still fixed batteries: you
+cannot swing them across the bow, the reticle sets *range*, and bearing comes
+from steering the ship. Bow chasers are the only way to hit a target dead
+ahead, and always load chain.
 
 ## The one architectural rule
 
@@ -47,7 +52,7 @@ input → Command ─┐                          ┌─ Snapshot → interp buf
 | `src/data` | Ship class and weather tables. Source of truth. | yes |
 | `src/net` | `Transport` seam plus the client's interpolation buffer. | yes |
 | `src/render` | Babylon scene, meshes, ocean, sky. | no |
-| `src/input` | Keyboard → `Command`. Never touches world state. | no |
+| `src/input` | Keyboard & mouse → `Command`. Never touches world state. | no |
 
 `LocalTransport` runs the simulation in this same process, but commands and
 snapshots still cross the interface **and are delayed by a configurable
@@ -86,8 +91,13 @@ the newest steering but preserving a pending fire.
   vertex shader.
 - **Grape shot and a crew damage track.** Two ammo types are in; grape needs
   a crew system to act on first.
+- **Mortars, swivel guns, brace, and a ram dash.** All held-modifier or
+  defensive mechanics the look-directed scheme's mockup proposes
+  (see `GAME_DESIGN.md`'s Camera & Controls section) but none are built.
 - **Boarding and ramming.** No collision between hulls at all yet — ships
-  pass through each other.
+  pass through each other. Ramming specifically depends on this.
+- **The AI using bow chasers or the drop weapon.** `src/sim/bot.ts` still
+  only ever fires broadsides.
 - **More than one opponent, and matchmaking.**
 - **A minimap**, which the HUD mockup specifies but nothing populates yet.
 
@@ -103,10 +113,13 @@ npm run verify:render # in another — drives a real browser over CDP
 combat behaviour.
 
 `test:combat` asserts the things that would otherwise only surface by playing
-— shots land where they are aimed, a target dead ahead cannot be hit, chain
-shot wrecks rigging while round shot sinks hulls, rigging damage measurably
-slows a ship, hulls sink and respawn, fire orders survive command coalescing,
-and the AI actually lands hits rather than merely firing.
+— shots land where they are aimed, a target dead ahead cannot be hit by a
+broadside but can by bow chasers, chain shot wrecks rigging while round shot
+sinks hulls, rigging damage measurably slows a ship, hulls sink and respawn,
+fire orders survive command coalescing, the drop weapon damages a ship within
+its blast radius and not one outside it, the look-directed sector arcs tile
+360° with no flicker at the seams, and the AI actually lands hits rather than
+merely firing.
 
 `test:determinism` replays a 60-second **duel** — with volleys, hits and a
 sinking — and compares state hashes. Projectiles and reload timers are exactly

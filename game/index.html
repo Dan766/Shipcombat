@@ -19,8 +19,8 @@
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 3px; padding: 11px 14px;
   }
-  #hud .target { top: 18px; left: 18px; width: 236px; }
-  #hud .wind { top: 18px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 180px; }
+  #hud .target { top: 58px; left: 18px; width: 236px; }
+  #hud .wind { top: 58px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 180px; }
   #hud .own { bottom: 18px; left: 18px; width: 252px; }
   #hud .guns { bottom: 18px; left: 50%; transform: translateX(-50%); text-align: center; }
   #hud .sunk {
@@ -50,7 +50,40 @@
     width: 32px; text-align: right; font: 11px ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
   }
-  #hud .cols { display: flex; gap: 28px; }
+  #hud .cols { display: flex; gap: 18px; }
+  #hud .col { position: relative; padding: 2px 4px; border-radius: 3px; }
+  #hud .col.armed { background: rgba(226,168,79,0.14); box-shadow: 0 0 0 1px rgba(226,168,79,0.55); }
+  #hud .ribbon {
+    top: 18px; left: 50%; transform: translateX(-50%);
+    width: min(560px, 60%); padding: 6px 10px; text-align: center;
+  }
+  #hud .rticks { position: relative; height: 16px; overflow: hidden; }
+  #hud .rticks .tick {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font: 10px ui-monospace, monospace; color: rgba(255,255,255,0.35);
+  }
+  #hud .rticks .tick.major { color: rgba(255,255,255,0.75); font-weight: 600; }
+  #hud .rticks .rmark {
+    position: absolute; top: -11px; transform: translateX(-50%);
+    color: #e2a84f; font-size: 10px;
+  }
+  #hud .rcursor {
+    margin: 2px auto 0; width: 0; height: 0;
+    border-left: 4px solid transparent; border-right: 4px solid transparent;
+    border-top: 5px solid #e2a84f;
+  }
+  #hud .offscreen {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 7px; color: #e2a84f;
+    background: rgba(10, 20, 26, 0.62);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 3px;
+  }
+  #hud .offscreen.left { left: 14px; }
+  #hud .offscreen.right { right: 14px; }
+  #hud .offscreen .arrow { font-size: 18px; line-height: 1; }
+  #hud .offscreen .rng { font: 10px ui-monospace, monospace; color: rgba(255,255,255,0.7); }
   #hud .pips { display: flex; gap: 3px; margin-top: 6px; justify-content: center; }
   #hud .pip {
     width: 7px; height: 8px; border-radius: 1px;
