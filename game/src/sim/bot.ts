@@ -21,6 +21,10 @@ const PREFERRED_RANGE = 130;
 const FIRE_ARC = 0.42; // ~24 degrees
 /** How far off the bow a target may be before the bow chasers will fire. */
 const BOW_ARC = 0.17; // ~10 degrees
+/** How far off dead astern a follower may be before the drop weapon is used. */
+const STERN_ARC = 0.52; // ~30 degrees
+/** Follower distance, in metres, close enough for the charge to catch it. */
+const STERN_RANGE = 18;
 
 export interface BotMemory {
   seq: number;
@@ -71,11 +75,17 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   const bowReady = self.reloadBow >= 1 && Math.abs(relative) < BOW_ARC && inRange;
   const broadside = inArc && ready && inRange;
 
+  // The stern charge only helps against a ship tailing close behind, so it is
+  // kept for exactly that; a broadside still takes priority if one bears.
+  const sternReady = self.reloadStern >= 1 && range < STERN_RANGE
+    && Math.PI - Math.abs(relative) < STERN_ARC;
+
   return {
     seq: mem.seq++,
     turn,
     sail: 1,
-    fire: broadside ? (side < 0 ? 'port' : 'starboard') : bowReady ? 'bow' : null,
+    fire: broadside ? (side < 0 ? 'port' : 'starboard')
+      : sternReady ? 'stern' : bowReady ? 'bow' : null,
     aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
     ammo: useChain ? 'chain' : 'round',
     aimHold: 0,

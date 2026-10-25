@@ -218,6 +218,23 @@ console.log('\nbot bow chasers');
   check('bot prefers a broadside when one bears', botCommand(bot, target, fresh()).fire === 'starboard');
 }
 
+console.log('\nbot stern drop weapon');
+{
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 0, -14, 0);          // follower 14 m dead astern of the bot
+  w.addShip(2, 'brig', 0, 0, 0, true);
+  const [target, bot] = w.ships;
+  const fresh = () => newBotMemory();
+  check('bot drops the stern charge on a close follower', botCommand(bot, target, fresh()).fire === 'stern');
+  bot.reloadStern = 0.5;
+  check('bot holds the charge while it reloads', botCommand(bot, target, fresh()).fire !== 'stern');
+  bot.reloadStern = 1;
+  target.z = -60;
+  check('bot keeps the charge for a distant follower', botCommand(bot, target, fresh()).fire !== 'stern');
+  target.z = 0; target.x = 14;              // abeam: not astern
+  check('bot does not drop the charge on a beam target', botCommand(bot, target, fresh()).fire !== 'stern');
+}
+
 /* --- fire orders survive a slow client -------------------------------- */
 console.log('\ncommand coalescing');
 {
