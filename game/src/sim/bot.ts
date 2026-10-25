@@ -19,6 +19,8 @@ import { normalizeAngle } from './wind.ts';
 const PREFERRED_RANGE = 130;
 /** How far off the beam a target may be before the bot will fire. */
 const FIRE_ARC = 0.42; // ~24 degrees
+/** How far off the bow a target may be before the bow chasers will fire. */
+const BOW_ARC = 0.17; // ~10 degrees
 
 export interface BotMemory {
   seq: number;
@@ -64,11 +66,16 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   // close enough to finish.
   const useChain = target.rig > 0.55 && range > PREFERRED_RANGE;
 
+  // Bow chasers are the only gun that bears dead ahead, and always load chain.
+  // A broadside is the better weapon, so they only fire when none can.
+  const bowReady = self.reloadBow >= 1 && Math.abs(relative) < BOW_ARC && inRange;
+  const broadside = inArc && ready && inRange;
+
   return {
     seq: mem.seq++,
     turn,
     sail: 1,
-    fire: inArc && ready && inRange ? (side < 0 ? 'port' : 'starboard') : null,
+    fire: broadside ? (side < 0 ? 'port' : 'starboard') : bowReady ? 'bow' : null,
     aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
     ammo: useChain ? 'chain' : 'round',
     aimHold: 0,

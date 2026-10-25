@@ -11,6 +11,7 @@
 import { World } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, rigEfficiency } from '../src/sim/combat.ts';
+import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
@@ -198,6 +199,23 @@ console.log('\nbot');
   check('bot lands hits on a stationary target', hits > 0, `${hits} hits in 90 s`);
   check('bot damaged the target', w.ships[0].hull < 1 || w.ships[0].rig < 1,
     `hull ${w.ships[0].hull.toFixed(2)} rig ${w.ships[0].rig.toFixed(2)}`);
+}
+
+console.log('\nbot bow chasers');
+{
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 0, 120, Math.PI);   // target 120 m dead ahead of the bot
+  w.addShip(2, 'brig', 0, 0, 0, true);
+  const [target, bot] = w.ships;
+  const fresh = () => newBotMemory();
+  check('bot fires bow chasers at a target dead ahead', botCommand(bot, target, fresh()).fire === 'bow');
+  bot.reloadBow = 0.5;
+  check('bot holds fire while the bow chasers reload', botCommand(bot, target, fresh()).fire === null);
+  bot.reloadBow = 1;
+  target.x = 60;                            // ~27 degrees off the bow: no gun bears
+  check('bot does not fire bow chasers at an off-axis target', botCommand(bot, target, fresh()).fire === null);
+  target.x = 120; target.z = 0;             // abeam to starboard: broadside wins
+  check('bot prefers a broadside when one bears', botCommand(bot, target, fresh()).fire === 'starboard');
 }
 
 /* --- fire orders survive a slow client -------------------------------- */
