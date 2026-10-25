@@ -235,6 +235,28 @@ console.log('\nbot stern drop weapon');
   check('bot does not drop the charge on a beam target', botCommand(bot, target, fresh()).fire !== 'stern');
 }
 
+/* --- the bot lays its guns like a player holding aim ------------------ */
+console.log('\nbot aim hold');
+{
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 120, 0, 0);            // 120 m off the bot's starboard beam
+  w.addShip(2, 'brig', 0, 0, 0, true);
+  const [target, bot] = w.ships;
+  bot.reloadStbd = 0;                          // reloading: no shot, aim keeps building
+  const mem = newBotMemory();
+  const first = botCommand(bot, target, mem).aimHold;
+  for (let i = 0; i < TICK_HZ; i++) botCommand(bot, target, mem);
+  const held = botCommand(bot, target, mem).aimHold;
+  check('aim builds while a broadside bears, even mid-reload', first > 0 && held === 1,
+    `${first.toFixed(3)} -> ${held.toFixed(2)}`);
+  bot.reloadStbd = 1;
+  const shot = botCommand(bot, target, mem);
+  check('the shot goes off at full aim', shot.fire === 'starboard' && shot.aimHold === 1);
+  check('aim is spent by firing', botCommand(bot, target, mem).aimHold < 0.1);
+  target.z = 400;                              // slides off the beam
+  check('aim is lost when the target leaves the arc', botCommand(bot, target, mem).aimHold === 0);
+}
+
 /* --- fire orders survive a slow client -------------------------------- */
 console.log('\ncommand coalescing');
 {

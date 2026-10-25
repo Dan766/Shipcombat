@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-25 (UTC, run 3) — bot holds aim like a player
+- Baseline: verify green, build green, verify:render green (Chromium at /opt/pw-browsers/chromium-1243/chrome-linux64/chrome; clear 78.5 ms / fair 79.3 / squall 76.8 / storm 84.1 / fog 71.8; 86156 verts, 5-6 meshes). Combat section again landed no damage.
+- Change: `src/sim/bot.ts` now sends `aimHold`. It ramps over ~1 s (30 ticks) while a broadside arc and range bear, carries through the reload, resets when the bot fires or the target leaves the arc. Before, the bot always fired at full spread, which the player can shrink to a third. `BotMemory` gains `aimHold`. New "bot aim hold" tests in `scripts/combat-tests.ts` (builds mid-reload, full at shot, spent by firing, lost off-arc).
+- Verification: verify + build green. Render after: clear 80.6 ms / fair 80.7 / squall 84.9 / storm 84.9 / fog 81.1, verts unchanged (all within 10% of run 2; sim-only change). Stationary-target bot test: 26 hits/90 s, hull 0.75, rig 0.39 (was 27 / 0.74 / 0.36), so that scenario shows no measurable accuracy gain. The benefit is largely in moving duels and was not measured.
+- Skipped: no A/B duel measurement of the accuracy gain. Bots are now somewhat more dangerous in play; the human may want to tune the ramp (`AIM_RAMP_TICKS`) as a difficulty knob. Render-check combat still lands no damage.
+- Ideas: make verify-render combat assert hits (e.g. park the foe in the arc); bot brace/disengage at low hull; bot opens range when a follower sits astern outside charge range.
+
 ## 2026-10-25 (UTC, run 2) — bot drops stern charge on close followers
 - Baseline: verify green, build green, verify:render green (Chromium at /opt/pw-browsers/chromium-1243; SwiftShader; clear 81.2 ms / fair 78.6 / squall 79.2 / storm 82.3 / fog 72.7; 86156 verts, 5-6 meshes). Combat section again landed no damage.
 - Change: `src/sim/bot.ts` fires the stern drop weapon when the target is within ~30 deg of dead astern and under 18 m, the charge is loaded, and no broadside bears. New "bot stern drop weapon" tests in `scripts/combat-tests.ts` (fires, holds while reloading, ignores distant and beam targets).

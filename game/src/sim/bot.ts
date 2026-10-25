@@ -12,7 +12,7 @@
  */
 
 import { MAX_RANGE, MIN_RANGE } from './ballistics.ts';
-import type { Command, ShipState } from './types.ts';
+import { TICK_HZ, type Command, type ShipState } from './types.ts';
 import { normalizeAngle } from './wind.ts';
 
 /** Range the bot tries to hold, in metres. Inside its guns, outside a ram. */
@@ -25,15 +25,19 @@ const BOW_ARC = 0.17; // ~10 degrees
 const STERN_ARC = 0.52; // ~30 degrees
 /** Follower distance, in metres, close enough for the charge to catch it. */
 const STERN_RANGE = 18;
+/** Ticks of steady aim to reach full spread reduction, matching the player's ~1 s hold. */
+const AIM_RAMP_TICKS = TICK_HZ;
 
 export interface BotMemory {
   seq: number;
   /** Which way it circles. Flipped only when it needs to disengage. */
   circleDir: 1 | -1;
+  /** 0..1, how long a broadside has been steadily laid on the target. */
+  aimHold: number;
 }
 
 export function newBotMemory(): BotMemory {
-  return { seq: 0, circleDir: 1 };
+  return { seq: 0, circleDir: 1, aimHold: 0 };
 }
 
 export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory): Command {
@@ -80,6 +84,12 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   const sternReady = self.reloadStern >= 1 && range < STERN_RANGE
     && Math.PI - Math.abs(relative) < STERN_ARC;
 
+  // Like a player holding aim: steady while a broadside bears, kept through
+  // the reload, lost the moment the target slides off the beam or a gun fires.
+  mem.aimHold = inArc && inRange ? Math.min(1, mem.aimHold + 1 / AIM_RAMP_TICKS) : 0;
+  const aimHold = mem.aimHold;
+  if (broadside) mem.aimHold = 0;
+
   return {
     seq: mem.seq++,
     turn,
@@ -88,7 +98,7 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
       : sternReady ? 'stern' : bowReady ? 'bow' : null,
     aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
     ammo: useChain ? 'chain' : 'round',
-    aimHold: 0,
+    aimHold,
   };
 }
 
