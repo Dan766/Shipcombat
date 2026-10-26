@@ -27,6 +27,8 @@ const STERN_ARC = 0.52; // ~30 degrees
 const STERN_RANGE = 18;
 /** Ticks of steady aim to reach full spread reduction, matching the player's ~1 s hold. */
 const AIM_RAMP_TICKS = TICK_HZ;
+/** Own hull fraction below which the bot breaks off, if it is losing the duel. */
+const FLEE_HULL = 0.3;
 
 export interface BotMemory {
   seq: number;
@@ -58,7 +60,10 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
     : range < PREFERRED_RANGE * 0.7 ? 0.55
       : 0;
   const wantOffset = (Math.PI / 2 + closing) * mem.circleDir;
-  const desired = normalizeAngle(bearing - wantOffset);
+  // A badly hurt bot that is also worse off than its target runs for open
+  // water instead of circling to the death; guns still fire if one bears.
+  const fleeing = self.hull < FLEE_HULL && self.hull < target.hull;
+  const desired = fleeing ? normalizeAngle(bearing + Math.PI) : normalizeAngle(bearing - wantOffset);
   const error = normalizeAngle(desired - self.heading);
 
   const turn = Math.max(-1, Math.min(1, error * 2.2));
@@ -115,4 +120,4 @@ export function firingSide(self: ShipState, to: ShipState): -1 | 1 | 0 {
   return relative < 0 ? -1 : 1;
 }
 
-export { PREFERRED_RANGE, FIRE_ARC };
+export { PREFERRED_RANGE, FIRE_ARC, FLEE_HULL };

@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-26 (UTC) — losing bot breaks off
+- Baseline: merge with base was a no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 100.1 ms / fair 91.9 / squall 87.8 / storm 94.6 / fog 86.5; 86156 verts, 5-6 meshes). Combat section again landed no damage.
+- Change: `src/sim/bot.ts` — when own hull < `FLEE_HULL` (0.3) and below the target's hull, the bot steers directly away instead of circling (the unused `circleDir` comment already anticipated disengaging); it still fires any broadside that bears. New "bot disengage" tests in `scripts/combat-tests.ts` (healthy holds the beam, hurt+losing turns away and still fires, hurt but winning keeps fighting).
+- Verification: verify + build green. Render after: clear 96.6 ms / fair 96.6 / squall 93.0 / storm 93.8 / fog 89.7, verts unchanged. Frame time is ~20% above the last logged entry (80 ms), but the same-day pre-change baseline was already that high and the change is sim-only, so I attribute it to host/SwiftShader noise.
+- Skipped: no duel simulation measuring how often fleeing happens or whether bots now become unkillable runners; 0.3 threshold is a guess and a difficulty knob for the human. Render-check combat still lands no damage.
+- Ideas: make verify-render combat assert hits; bot flee should consider wind (run downwind / can't outrun in irons); bot repairs/brace once brace exists.
+
 ## 2026-10-25 (UTC, run 3) — bot holds aim like a player
 - Baseline: verify green, build green, verify:render green (Chromium at /opt/pw-browsers/chromium-1243/chrome-linux64/chrome; clear 78.5 ms / fair 79.3 / squall 76.8 / storm 84.1 / fog 71.8; 86156 verts, 5-6 meshes). Combat section again landed no damage.
 - Change: `src/sim/bot.ts` now sends `aimHold`. It ramps over ~1 s (30 ticks) while a broadside arc and range bear, carries through the reload, resets when the bot fires or the target leaves the arc. Before, the bot always fired at full spread, which the player can shrink to a third. `BotMemory` gains `aimHold`. New "bot aim hold" tests in `scripts/combat-tests.ts` (builds mid-reload, full at shot, spent by firing, lost off-arc).

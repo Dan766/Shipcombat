@@ -257,6 +257,23 @@ console.log('\nbot aim hold');
   check('aim is lost when the target leaves the arc', botCommand(bot, target, mem).aimHold === 0);
 }
 
+/* --- a losing bot breaks off ------------------------------------------ */
+console.log('\nbot disengage');
+{
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 120, 0, 0);            // 120 m off the bot's starboard beam
+  w.addShip(2, 'brig', 0, 0, 0, true);
+  const [target, bot] = w.ships;
+  const circling = botCommand(bot, target, newBotMemory());
+  check('a healthy bot holds the beam', Math.abs(circling.turn) < 0.2, `turn ${circling.turn.toFixed(2)}`);
+  bot.hull = 0.2;
+  const fleeing = botCommand(bot, target, newBotMemory());
+  check('a badly hurt, losing bot turns away', fleeing.turn < -0.9, `turn ${fleeing.turn.toFixed(2)}`);
+  check('it still fires a broadside that bears', fleeing.fire === 'starboard');
+  target.hull = 0.1;
+  check('a hurt bot that is winning keeps fighting', Math.abs(botCommand(bot, target, newBotMemory()).turn) < 0.2);
+}
+
 /* --- fire orders survive a slow client -------------------------------- */
 console.log('\ncommand coalescing');
 {
