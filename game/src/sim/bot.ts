@@ -63,7 +63,13 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   // A badly hurt bot that is also worse off than its target runs for open
   // water instead of circling to the death; guns still fire if one bears.
   const fleeing = self.hull < FLEE_HULL && self.hull < target.hull;
-  const desired = fleeing ? normalizeAngle(bearing + Math.PI) : normalizeAngle(bearing - wantOffset);
+  // Its opponent doing the same is a quarry: run it down rather than circle at
+  // the preferred range while it sails away (duels used to stall that way).
+  const chasing = !fleeing && target.hull < FLEE_HULL && target.hull < self.hull
+    && range > PREFERRED_RANGE * 0.7;
+  const desired = fleeing ? normalizeAngle(bearing + Math.PI)
+    : chasing ? bearing
+      : normalizeAngle(bearing - wantOffset);
   const error = normalizeAngle(desired - self.heading);
 
   const turn = Math.max(-1, Math.min(1, error * 2.2));

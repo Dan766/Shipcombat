@@ -1,5 +1,13 @@
 # Autopilot log
 
+## 2026-10-26 (UTC, run 2) — bots run down a crippled runner
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 97.1 ms / fair 89.7 / squall 86.0 / storm 87.0 / fog 76.5; 86156 verts). Combat section again landed no damage.
+- Finding: bot-vs-bot duels (9 setups: 3 weathers x brig/frigate/sloop-galleon pairs, 600 s cap) stalled in 5 of 9 — the loser fled at <30% hull and the winner kept circling at preferred range, so the runner survived at 0.12-0.27 hull for the full 10 minutes.
+- Change: `src/sim/bot.ts` — a bot whose target is below `FLEE_HULL` and below its own hull now steers straight at it (`chasing`) while range > 0.7x preferred. Same duels after: 7 of 9 decided; the other 2 end with the loser dismasted (rig ~0) at hull 0.01-0.11, not yet sunk. Tests: new "bot pursuit" block (chases a crippled runner, still takes the beam vs a healthy one, brig duel is decided within 600 s); the "hurt bot that is winning" check now asserts it turns in rather than that it holds the beam.
+- Verification: verify + build green. Render after: clear 87.0 ms / fair 81.9 / squall 78.2 / storm 83.4 / fog 78.8, verts unchanged (no regression; sim-only).
+- Skipped: the 2 residual stalls (dismasted wrecks that never finish sinking) not investigated; chase threshold reuses FLEE_HULL, a difficulty knob for the human. Render-check combat still lands no damage.
+- Ideas: investigate wrecks at ~0 rig / low hull that don't sink and the chaser not finishing them; make verify-render combat assert hits; flee should consider wind.
+
 ## 2026-10-26 (UTC) — losing bot breaks off
 - Baseline: merge with base was a no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 100.1 ms / fair 91.9 / squall 87.8 / storm 94.6 / fog 86.5; 86156 verts, 5-6 meshes). Combat section again landed no damage.
 - Change: `src/sim/bot.ts` — when own hull < `FLEE_HULL` (0.3) and below the target's hull, the bot steers directly away instead of circling (the unused `circleDir` comment already anticipated disengaging); it still fires any broadside that bears. New "bot disengage" tests in `scripts/combat-tests.ts` (healthy holds the beam, hurt+losing turns away and still fires, hurt but winning keeps fighting).

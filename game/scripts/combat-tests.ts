@@ -271,7 +271,31 @@ console.log('\nbot disengage');
   check('a badly hurt, losing bot turns away', fleeing.turn < -0.9, `turn ${fleeing.turn.toFixed(2)}`);
   check('it still fires a broadside that bears', fleeing.fire === 'starboard');
   target.hull = 0.1;
-  check('a hurt bot that is winning keeps fighting', Math.abs(botCommand(bot, target, newBotMemory()).turn) < 0.2);
+  check('a hurt bot that is winning keeps fighting (turns in, not away)', botCommand(bot, target, newBotMemory()).turn > -0.2);
+}
+
+console.log('\nbot pursuit');
+{
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 0, 200, 0);            // 200 m dead ahead of the bot
+  w.addShip(2, 'brig', 0, 0, 0, true);
+  const [target, bot] = w.ships;
+  target.hull = 0.1;
+  const chase = botCommand(bot, target, newBotMemory());
+  check('a healthy bot runs down a crippled runner', Math.abs(chase.turn) < 0.1 && chase.sail === 1,
+    `turn ${chase.turn.toFixed(2)}`);
+  target.hull = 0.9;
+  check('it does not give up the beam for a healthy target', Math.abs(botCommand(bot, target, newBotMemory()).turn) > 0.5);
+
+  // Full duel: a loser that flees must still be caught, not left at 12% hull
+  // for ten minutes (the old behaviour for this exact setup).
+  const d = new World({ weather: 'fair' });
+  d.addShip(1, 'brig', -70, -60, Math.PI * 0.2, true);
+  d.addShip(2, 'brig', 70, 60, Math.PI * 0.8, true);
+  let t = 0;
+  while (t < TICK_HZ * 600 && !d.ships.some((s) => s.sinking > 0)) { d.step(); t++; }
+  check('a bot-vs-bot duel is decided rather than stalling', d.ships.some((s) => s.sinking > 0),
+    `${(t / TICK_HZ).toFixed(0)} s`);
 }
 
 /* --- fire orders survive a slow client -------------------------------- */
