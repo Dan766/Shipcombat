@@ -1,5 +1,13 @@
 # Autopilot log
 
+## 2026-10-26 (UTC, run 3) — chaser holds the beam on a quarry
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 76.2 ms / fair 76.8 / squall 77.5 / storm 76.7 / fog 79.3; 86156 verts). Combat section again landed no damage.
+- Finding: the residual duel stalls were an oscillation at ~90 m: the chaser stopped chasing at 0.7x preferred range, then "too close" logic opened range, so it never held a broadside on the wreck (stalls at d=90 in 4 of 9 setups).
+- Change: `src/sim/bot.ts` — when the target is a quarry (hull < FLEE_HULL and below own) and within chase range, the bot holds the beam without the range-opening offset. 9-duel sweep (3 weathers x brig/frigate/sloop-galleon, 600 s cap): 9 of 9 decided (was 7), longest 577 s. Tests: new beam-hold check and a fair-weather frigate duel decided within 300 s (139 s) in the "bot pursuit" block.
+- Verification: verify + build green. Render after: clear 76.0 ms (first row seen; run's remainder cut off by my shell being killed, geometry unchanged, sim-only change).
+- Skipped: storm frigate duel still takes 577 s; no tuning of the 0.7x threshold. Render-check combat still lands no damage.
+- Ideas: make verify-render combat assert hits; flee should consider wind; speed up finishing in storm (aim compensation for roll).
+
 ## 2026-10-26 (UTC, run 2) — bots run down a crippled runner
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 97.1 ms / fair 89.7 / squall 86.0 / storm 87.0 / fog 76.5; 86156 verts). Combat section again landed no damage.
 - Finding: bot-vs-bot duels (9 setups: 3 weathers x brig/frigate/sloop-galleon pairs, 600 s cap) stalled in 5 of 9 — the loser fled at <30% hull and the winner kept circling at preferred range, so the runner survived at 0.12-0.27 hull for the full 10 minutes.

@@ -296,6 +296,22 @@ console.log('\nbot pursuit');
   while (t < TICK_HZ * 600 && !d.ships.some((s) => s.sinking > 0)) { d.step(); t++; }
   check('a bot-vs-bot duel is decided rather than stalling', d.ships.some((s) => s.sinking > 0),
     `${(t / TICK_HZ).toFixed(0)} s`);
+
+  // Close on a crippled quarry: hold the beam rather than back off, so a
+  // broadside can bear (frigates in fair weather used to orbit it for 600 s).
+  target.hull = 0.1;
+  bot.heading = 0;
+  target.x = 80; target.z = 0;                 // 80 m abeam on the starboard side
+  const close = botCommand(bot, target, newBotMemory());
+  check('a bot on top of a quarry holds the beam, not opens range', Math.abs(close.turn) < 0.2,
+    `turn ${close.turn.toFixed(2)}`);
+  const f = new World({ weather: 'fair' });
+  f.addShip(1, 'frigate', -70, -60, Math.PI * 0.2, true);
+  f.addShip(2, 'frigate', 70, 60, Math.PI * 0.8, true);
+  let ft = 0;
+  while (ft < TICK_HZ * 300 && !f.ships.some((s) => s.sinking > 0)) { f.step(); ft++; }
+  check('a fair-weather frigate duel is decided within 300 s', f.ships.some((s) => s.sinking > 0),
+    `${(ft / TICK_HZ).toFixed(0)} s`);
 }
 
 /* --- fire orders survive a slow client -------------------------------- */

@@ -65,11 +65,14 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   const fleeing = self.hull < FLEE_HULL && self.hull < target.hull;
   // Its opponent doing the same is a quarry: run it down rather than circle at
   // the preferred range while it sails away (duels used to stall that way).
-  const chasing = !fleeing && target.hull < FLEE_HULL && target.hull < self.hull
-    && range > PREFERRED_RANGE * 0.7;
+  const quarry = !fleeing && target.hull < FLEE_HULL && target.hull < self.hull;
+  const chasing = quarry && range > PREFERRED_RANGE * 0.7;
+  // Once on top of a quarry, hold the beam without opening the range: backing
+  // off to the preferred range just let it sail clear and the duel oscillated.
   const desired = fleeing ? normalizeAngle(bearing + Math.PI)
     : chasing ? bearing
-      : normalizeAngle(bearing - wantOffset);
+      : quarry ? normalizeAngle(bearing - (Math.PI / 2) * mem.circleDir)
+        : normalizeAngle(bearing - wantOffset);
   const error = normalizeAngle(desired - self.heading);
 
   const turn = Math.max(-1, Math.min(1, error * 2.2));
