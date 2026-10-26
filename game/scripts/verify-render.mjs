@@ -192,9 +192,11 @@ console.log('\ncombat:');
   });
 
   await page.evaluate(() => window.__ship.setAim(120));
+  await page.evaluate(() => window.__ship.placeFoe(1, 120));
+  await sleep(300);
   let maxInFlight = 0;
   for (let i = 0; i < 10; i++) {
-    await page.evaluate((side) => window.__ship.fire(side), i % 2 === 0 ? 1 : -1);
+    await page.evaluate(() => window.__ship.fire(1));
     for (let j = 0; j < 10; j++) {
       await sleep(110);
       const n = await page.evaluate(() => window.__ship.snapshot().projectiles.length);
@@ -216,7 +218,13 @@ console.log('\ncombat:');
   const damaged = after.hull < before.hull || after.rig < before.rig;
   console.log(`  enemy hull ${before.hull.toFixed(2)} -> ${after.hull.toFixed(2)}, ` +
     `rig ${before.rig.toFixed(2)} -> ${after.rig.toFixed(2)}  ` +
-    `${damaged ? '(bot took damage; both sides are shooting)' : '(no damage landed this run)'}`);
+    `${damaged ? '(foe parked abeam took damage)' : '(no damage landed)'}`);
+
+  if (!damaged) {
+    console.error('FAIL: broadsides at a foe parked 120 m abeam landed no damage');
+    await browser.close();
+    process.exit(1);
+  }
 
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/combat.png` });
 }

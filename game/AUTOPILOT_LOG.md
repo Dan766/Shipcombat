@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-26 (UTC, run 5) — verify-render combat now asserts a hit
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers/chromium-1243; clear 82.1 ms / fair 77.3 / squall 77.8 / storm 85.9 / fog 76.5; 86156 verts; worst 11.6 fps). Combat section again landed no damage (the foe was never in arc).
+- Change: `src/main.ts` adds a `__ship.placeFoe(side, range)` debug hook (parks the foe dead abeam, stopped, bot off); `scripts/verify-render.mjs` uses it, fires starboard broadsides, and now FAILS if no damage lands. Client/debug only, no sim change, so no sim test added.
+- Verification: verify:render after: storm 84.9 / fog 79.0 ms, same 86156 verts, worst 11.8 fps (no regression); combat: foe hull 1.00 -> 0.63, rig 1.00 -> 0.91. verify, build, layering, determinism green.
+- Skipped: nothing else attempted.
+- Ideas: flee should consider wind; storm frigate duel still takes ~577 s (aim compensation for roll); crew damage / grape shot still undesigned.
+
 ## 2026-10-26 (UTC, run 4) — no game change
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 118.2 ms / fair 107.4 / squall 107.8 / storm 131.1 / fog 99.7; 86156 verts; worst 7.6 fps). Frame times are ~40% above run 3 (76 ms) with identical geometry and no code change in this run, so this is host/SwiftShader load, not a regression. Combat section again landed no damage.
 - Change: none. I looked at making verify-render combat assert hits (the idea carried over from runs 1-3), but `window.__ship` in `src/main.ts` has no way to place the foe in the firing arc. Doing it means adding a debug hook to the client, and I couldn't verify a render-script change reliably on a host rendering at ~8 fps. I chose not to land an unverified change.
