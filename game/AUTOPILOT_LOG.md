@@ -1,5 +1,11 @@
 # Autopilot log
 
+## 2026-10-26 (UTC, run 4) — no game change
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 118.2 ms / fair 107.4 / squall 107.8 / storm 131.1 / fog 99.7; 86156 verts; worst 7.6 fps). Frame times are ~40% above run 3 (76 ms) with identical geometry and no code change in this run, so this is host/SwiftShader load, not a regression. Combat section again landed no damage.
+- Change: none. I looked at making verify-render combat assert hits (the idea carried over from runs 1-3), but `window.__ship` in `src/main.ts` has no way to place the foe in the firing arc. Doing it means adding a debug hook to the client, and I couldn't verify a render-script change reliably on a host rendering at ~8 fps. I chose not to land an unverified change.
+- Skipped: everything else; no design-doc feature (brace, grape shot) attempted, as they are still undesigned/deferred in GAME_DESIGN.md.
+- Ideas: add a `__ship.placeFoe(bearing, range)` debug hook and assert damage in verify-render; flee should consider wind; storm frigate duel still takes ~577 s to decide.
+
 ## 2026-10-26 (UTC, run 3) — chaser holds the beam on a quarry
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 76.2 ms / fair 76.8 / squall 77.5 / storm 76.7 / fog 79.3; 86156 verts). Combat section again landed no damage.
 - Finding: the residual duel stalls were an oscillation at ~90 m: the chaser stopped chasing at 0.7x preferred range, then "too close" logic opened range, so it never held a broadside on the wreck (stalls at d=90 in 4 of 9 setups).
