@@ -8,7 +8,7 @@
  * hit something.
  */
 
-import { World } from '../src/sim/world.ts';
+import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, rigEfficiency } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
@@ -420,6 +420,43 @@ console.log('\nlook sectors');
     armedMountFor(seam, 'bow') === 'bow' && armedMountFor(seam, 'starboard') === 'starboard');
   check('a bearing well clear of the seam ignores stale state',
     armedMountFor(90, 'bow') === 'starboard');
+}
+
+/* --- world rules around the edges ------------------------------------- */
+console.log('\nworld rules');
+{
+  // Arena: a ship sailing at the wall is held inside it and slowed.
+  const a = new World({ weather: 'clear', windFrom: 0 });
+  a.addShip(1, 'sloop', 295, 0, Math.PI / 2);
+  for (let t = 0; t < TICK_HZ * 20; t++) { a.applyCommand(1, hold({ sail: 1 })); a.step(); }
+  check('a ship is held inside the arena', Math.abs(a.ships[0].x) <= ARENA_HALF + 1e-9,
+    `x ${a.ships[0].x.toFixed(1)}`);
+
+  // Class switch resets condition and reload instead of carrying damage over.
+  const b = new World({ weather: 'clear' });
+  b.addShip(1, 'galleon', 0, 0, 0);
+  b.ships[0].hull = 0.2; b.ships[0].rig = 0.1; b.ships[0].reloadPort = 0.3;
+  b.applyControl({ kind: 'setClass', shipId: 1, cls: 'sloop' });
+  const sw = b.ships[0];
+  check('switching class resets hull, rig and reload',
+    sw.cls === 'sloop' && sw.hull === 1 && sw.rig === 1 && sw.reloadPort === 1 && sw.sinking === 0);
+
+  // Respawn goes back to the fixed spawn point, at rest.
+  const c = new World({ weather: 'clear' });
+  c.addShip(1, 'sloop', 40, -25, 1.2);
+  const ship = c.ships[0];
+  ship.x = 200; ship.z = 100; ship.heading = 3; ship.speed = 4; ship.hull = 0;
+  ship.sinking = 2;
+  for (let t = 0; t < 2; t++) c.step();
+  check('a sunk ship respawns at its spawn point, at rest',
+    ship.x === 40 && ship.z === -25 && ship.heading === 1.2 && ship.speed === 0 && ship.sinking === 0,
+    `at (${ship.x.toFixed(1)}, ${ship.z.toFixed(1)}) hdg ${ship.heading} spd ${ship.speed} sink ${ship.sinking}`);
+
+  // A wreck going under cannot be hit again, so it cannot re-sink or emit events.
+  const d = new World({ weather: 'clear' });
+  d.addShip(1, 'sloop', 0, 0, 0);
+  d.ships[0].sinking = 50;
+  check('a sinking hull is not a target', !hitsShip(d.ships[0], 0, 0, 0));
 }
 
 console.log('');

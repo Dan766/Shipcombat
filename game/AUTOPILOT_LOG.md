@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-27 (UTC, run 6) — world-rule test coverage
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers/chromium-1243; clear 81.1 ms / fair 83.4 / squall 86.8 / storm 75.8 / fog 73.2; 86156 verts; worst 11.5 fps; combat: foe hull 1.00 -> 0.63, rig 1.00 -> 0.91). No regression vs run 5.
+- Change: tests only (`scripts/combat-tests.ts`, new "world rules" block): arena clamp holds a ship at the wall, `setClass` resets hull/rig/reload, a sunk ship respawns at its fixed spawn point at rest, a sinking hull is not hittable. These behaviours were previously untested. No sim/src change, so behaviour is unchanged by construction.
+- Verification: verify (incl. layering, determinism) and build green after. Render check not rerun: no file under src/ changed, so the numbers above stand.
+- Skipped: brace / crew / grape shot are still undesigned in GAME_DESIGN.md; not attempted.
+- Ideas: flee should consider wind; storm frigate duel still ~577 s (roll aim compensation); test drop-blast radius sinking a ship and that the blast ignores its owner.
+
 ## 2026-10-26 (UTC, run 5) — verify-render combat now asserts a hit
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers/chromium-1243; clear 82.1 ms / fair 77.3 / squall 77.8 / storm 85.9 / fog 76.5; 86156 verts; worst 11.6 fps). Combat section again landed no damage (the foe was never in arc).
 - Change: `src/main.ts` adds a `__ship.placeFoe(side, range)` debug hook (parks the foe dead abeam, stopped, bot off); `scripts/verify-render.mjs` uses it, fires starboard broadsides, and now FAILS if no damage lands. Client/debug only, no sim change, so no sim test added.
