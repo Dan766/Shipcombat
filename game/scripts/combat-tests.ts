@@ -10,7 +10,7 @@
 
 import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
-import { AMMO, DAMAGE_PER_BALL, hitsShip, rigEfficiency } from '../src/sim/combat.ts';
+import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
@@ -428,6 +428,35 @@ console.log('\ndrop weapon');
   check('a blast can sink a crippled follower',
     kill.kinds.filter((k) => k === 'sunk').length === 1,
     `${kill.kinds.filter((k) => k === 'sunk').length} sunk events`);
+
+  // The radius is a hard edge: just inside is hit, just outside is not.
+  // Find where the charge lands, then park one ship either side of that point.
+  const splash = (() => {
+    const w = new World({ weather: 'clear' });
+    w.addShip(1, 'brig', 0, 0, 0);
+    for (let t = 0; t < TICK_HZ * 6; t++) {
+      w.applyCommand(1, hold({ fire: t === 0 ? 'stern' : null }));
+      w.step();
+      for (const e of w.snapshot().events) if (e.kind === 'dropBlast') return { x: e.x, z: e.z };
+    }
+    return null;
+  })();
+  check('the lone-dropper charge lands and blasts', splash !== null);
+  if (splash) {
+    const w = new World({ weather: 'clear' });
+    w.addShip(1, 'brig', 0, 0, 0);
+    w.addShip(2, 'brig', splash.x + DROP_RADIUS - 1, splash.z, 0);
+    w.addShip(3, 'brig', splash.x - DROP_RADIUS - 1, splash.z, 0);
+    for (let t = 0; t < TICK_HZ * 6; t++) {
+      w.applyCommand(1, hold({ fire: t === 0 ? 'stern' : null }));
+      w.applyCommand(2, hold({ sail: 0 }));
+      w.applyCommand(3, hold({ sail: 0 }));
+      w.step();
+    }
+    check('a ship 1 m inside DROP_RADIUS is hit, one 1 m outside is not',
+      w.ships[1].hull < 1 && w.ships[2].hull === 1,
+      `hulls ${w.ships[1].hull.toFixed(3)} ${w.ships[2].hull.toFixed(3)}`);
+  }
 }
 
 /* --- look-directed sector arcs ------------------------------------------ */
