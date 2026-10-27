@@ -13,6 +13,7 @@ import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src
 import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
+import { waveHeight, waveNormal } from '../src/sim/waves.ts';
 import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
@@ -546,6 +547,38 @@ console.log('\nworld rules');
   check('normalizeAngle lands in (-PI, PI]', [-7, -Math.PI, 0, Math.PI, 3.5, 20].every((a) => {
     const n = normalizeAngle(a);
     return n > -Math.PI && n <= Math.PI;
+  }));
+}
+
+console.log('\nwave field');
+{
+  const amp = 1.5;
+  const spots: Array<[number, number]> = [];
+  for (let i = -20; i <= 20; i++) for (let j = -20; j <= 20; j++) spots.push([i * 15.3, j * 14.7]);
+  const bound = (0.62 + 0.44 + 0.24) * amp;
+  check('height never exceeds the sum of wave amplitudes', spots.every(([x, z]) => Math.abs(waveHeight(x, z, amp)) <= bound + 1e-9), `bound ${bound.toFixed(2)}`);
+  check('height is a pure function of position', spots.every(([x, z]) => waveHeight(x, z, amp) === waveHeight(x, z, amp)));
+  check('height scales linearly with amplitude', spots.every(([x, z]) => Math.abs(waveHeight(x, z, 2 * amp) - 2 * waveHeight(x, z, amp)) < 1e-9));
+  check('zero amplitude is a flat sea with an upright normal', spots.every(([x, z]) => {
+    const n = waveNormal(x, z, 0);
+    return waveHeight(x, z, 0) === 0 && n[0] === 0 && n[1] === 1 && n[2] === 0;
+  }));
+  check('normals are unit length and point upward', spots.every(([x, z]) => {
+    const n = waveNormal(x, z, amp);
+    return Math.abs(Math.hypot(n[0], n[1], n[2]) - 1) < 1e-9 && n[1] > 0;
+  }));
+  const peak = (x0: number) => {
+    let m = 0;
+    for (let i = 0; i < 400; i++) m = Math.max(m, Math.abs(waveHeight(x0 + i * 1.7, x0 + i * 0.9, amp)));
+    return m;
+  };
+  const near = peak(0), far = peak(5000);
+  check('the sea does not go calm far from the origin', far > 0.5 * near, `near ${near.toFixed(2)} far ${far.toFixed(2)}`);
+  check('the normal leans downhill (towards falling height)', spots.every(([x, z]) => {
+    const n = waveNormal(x, z, amp);
+    const gx = waveHeight(x + 0.1, z, amp) - waveHeight(x - 0.1, z, amp);
+    const gz = waveHeight(x, z + 0.1, amp) - waveHeight(x, z - 0.1, amp);
+    return Math.abs(gx) < 1e-3 || n[0] * gx < 0 ? (Math.abs(gz) < 1e-3 || n[2] * gz < 0) : false;
   }));
 }
 

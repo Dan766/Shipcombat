@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-27 (UTC, run 10) — wave field test coverage
+- Baseline: merge no-op; verify (layering, determinism, combat) green, build green. verify:render NOT run this time (tests-only change, no src/ change; numbers from run 9 stand).
+- Change: tests only (`scripts/combat-tests.ts`, new "wave field" block): `waveHeight`/`waveNormal` were untested. Asserts height bound (sum of amplitudes), purity, linear scaling with amplitude, flat sea with upright normal at amp 0, unit upward normals, no calming far from origin (near 1.91 vs far 1.92 peak), normal leans downhill. No src change.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: flee should consider wind; storm frigate duel still ~577 s; test wind-direction/gust determinism over time.
+
 ## 2026-10-27 (UTC, run 9) — points-of-sail test coverage
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; worst 11.3 fps; combat: foe hull 1.00 -> 0.48, rig 1.00 -> 0.87; peak 14 projectiles). Per-weather frame times and vert count were cut off from my output (tail only), not recorded.
 - Change: tests only (`scripts/combat-tests.ts`, new "points of sail" block): `pointOfSail` was never tested directly. Asserts irons is slowest, beam reach (peak 1.00 at 100 deg) fastest, curve continuous (max step 0.023/deg), running slower than broad reach, clamping/sign, `pointOfSailName` zones, `angleOffWind` wrap, `normalizeAngle` range. No src change.
