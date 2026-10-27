@@ -395,6 +395,39 @@ console.log('\ndrop weapon');
   const far = dropInto(80);
   check('a ship following close astern takes drop-weapon damage', close > 0, `hull loss ${close.toFixed(3)}`);
   check('a ship well clear of the blast radius takes none', far === 0, `hull loss ${far.toFixed(3)}`);
+  // Run a drop with followers abeam of the splash point (water contact, not a
+  // direct hull hit) and report the world plus every event kind seen.
+  // every event seen, and the dropper's hull.
+  function dropWith(followers: { id: number; x: number; hull?: number }[]) {
+    const w = new World({ weather: 'clear' });
+    w.addShip(1, 'brig', 0, 0, 0);
+    for (const f of followers) {
+      w.addShip(f.id, 'brig', f.x, -11.5, 0);
+      if (f.hull !== undefined) w.ships.find((s) => s.id === f.id)!.hull = f.hull;
+    }
+    const kinds: string[] = [];
+    for (let t = 0; t < TICK_HZ * 6; t++) {
+      w.applyCommand(1, hold({ fire: t === 0 ? 'stern' : null }));
+      for (const f of followers) w.applyCommand(f.id, hold({ sail: 0 }));
+      w.step();
+      for (const e of w.snapshot().events) kinds.push(e.kind);
+    }
+    return { w, kinds };
+  }
+
+  const solo = dropWith([{ id: 2, x: 7 }]);
+  check('the dropper is not hurt by its own blast', solo.w.ships[0].hull === 1, `hull ${solo.w.ships[0].hull}`);
+  check('a blast is reported as a dropBlast event', solo.kinds.includes('dropBlast'));
+
+  const pair = dropWith([{ id: 2, x: 7 }, { id: 3, x: -8 }]);
+  check('every ship inside the radius is hit',
+    pair.w.ships[1].hull < 1 && pair.w.ships[2].hull < 1,
+    `hulls ${pair.w.ships[1].hull.toFixed(3)} ${pair.w.ships[2].hull.toFixed(3)}`);
+
+  const kill = dropWith([{ id: 2, x: 7, hull: 0.02 }]);
+  check('a blast can sink a crippled follower',
+    kill.kinds.filter((k) => k === 'sunk').length === 1,
+    `${kill.kinds.filter((k) => k === 'sunk').length} sunk events`);
 }
 
 /* --- look-directed sector arcs ------------------------------------------ */

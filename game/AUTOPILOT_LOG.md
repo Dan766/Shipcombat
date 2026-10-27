@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-27 (UTC, run 7) — drop-blast test coverage
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; 86156 verts as before; combat: foe hull 1.00 -> 0.66, rig 1.00 -> 0.92; worst 13.6 fps). Per-weather frame times were cut off from my output (tail only), not recorded.
+- Change: tests only (`scripts/combat-tests.ts`, "drop weapon" block): the dropper is not hurt by its own blast, a splash-point blast emits `dropBlast`, every ship inside DROP_RADIUS is hit, a blast can sink a crippled follower (exactly one `sunk` event). Finding: a follower right on the dropper's stern is hit directly by the charge (impact, not blast), so the old "close astern" test exercised a direct hit; the new tests park ships abeam of the splash point to exercise the radius path. No src change.
+- Verification: verify (layering, determinism, combat) and build green. Render check not rerun: no src/ change.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: flee should consider wind; storm frigate duel still ~577 s; test that blast damage stops at DROP_RADIUS exactly (edge ship at 10 m vs 11 m).
+
 ## 2026-10-27 (UTC, run 6) — world-rule test coverage
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers/chromium-1243; clear 81.1 ms / fair 83.4 / squall 86.8 / storm 75.8 / fog 73.2; 86156 verts; worst 11.5 fps; combat: foe hull 1.00 -> 0.63, rig 1.00 -> 0.91). No regression vs run 5.
 - Change: tests only (`scripts/combat-tests.ts`, new "world rules" block): arena clamp holds a ship at the wall, `setClass` resets hull/rig/reload, a sunk ship respawns at its fixed spawn point at rest, a sinking hull is not hittable. These behaviours were previously untested. No sim/src change, so behaviour is unchanged by construction.
