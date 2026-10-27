@@ -12,6 +12,7 @@ import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
+import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
@@ -519,6 +520,33 @@ console.log('\nworld rules');
   d.addShip(1, 'sloop', 0, 0, 0);
   d.ships[0].sinking = 50;
   check('a sinking hull is not a target', !hitsShip(d.ships[0], 0, 0, 0));
+}
+
+/* --- points of sail ----------------------------------------------------- */
+{
+  console.log('\npoints of sail');
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const at = (d: number) => pointOfSail(rad(d));
+  check('in irons is the slowest point', at(0) < at(35) && at(0) <= at(180), `0deg ${at(0).toFixed(2)}`);
+  let peak = 0, peakDeg = 0;
+  for (let d = 0; d <= 180; d++) if (at(d) > peak) { peak = at(d); peakDeg = d; }
+  check('a beam reach is the fastest point', peakDeg >= 85 && peakDeg <= 115 && Math.abs(peak - 1) < 1e-9, `peak ${peak.toFixed(2)} at ${peakDeg}deg`);
+  let maxStep = 0;
+  for (let d = 1; d <= 180; d++) maxStep = Math.max(maxStep, Math.abs(at(d) - at(d - 1)));
+  check('the curve is continuous (no gearbox steps)', maxStep < 0.06, `max step per degree ${maxStep.toFixed(3)}`);
+  check('running is slower than a broad reach', at(180) < at(130));
+  check('angles beyond PI clamp and sign is ignored', pointOfSail(rad(270)) === at(180) && pointOfSail(-rad(90)) === at(90));
+  check('zone names follow the design thresholds',
+    pointOfSailName(rad(10)) === 'In Irons' && pointOfSailName(rad(60)) === 'Close Hauled' &&
+    pointOfSailName(rad(90)) === 'Beam Reach' && pointOfSailName(rad(140)) === 'Broad Reach' &&
+    pointOfSailName(rad(175)) === 'Running');
+  check('angleOffWind wraps the short way round',
+    Math.abs(angleOffWind(rad(350), rad(10)) - rad(20)) < 1e-9 && angleOffWind(0, 0) === 0 &&
+    Math.abs(angleOffWind(0, Math.PI) - Math.PI) < 1e-9);
+  check('normalizeAngle lands in (-PI, PI]', [-7, -Math.PI, 0, Math.PI, 3.5, 20].every((a) => {
+    const n = normalizeAngle(a);
+    return n > -Math.PI && n <= Math.PI;
+  }));
 }
 
 console.log('');

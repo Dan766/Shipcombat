@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-27 (UTC, run 9) — points-of-sail test coverage
+- Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; worst 11.3 fps; combat: foe hull 1.00 -> 0.48, rig 1.00 -> 0.87; peak 14 projectiles). Per-weather frame times and vert count were cut off from my output (tail only), not recorded.
+- Change: tests only (`scripts/combat-tests.ts`, new "points of sail" block): `pointOfSail` was never tested directly. Asserts irons is slowest, beam reach (peak 1.00 at 100 deg) fastest, curve continuous (max step 0.023/deg), running slower than broad reach, clamping/sign, `pointOfSailName` zones, `angleOffWind` wrap, `normalizeAngle` range. No src change.
+- Verification: verify (layering, determinism, combat) and build green. Render not rerun: no src/ change.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: flee should consider wind; storm frigate duel still ~577 s; test wave height/normal bounds and determinism of waves.
+
 ## 2026-10-27 (UTC, run 8) — drop-blast radius edge test
 - Baseline: merge no-op; verify green, build green, verify:render green (Chromium /opt/pw-browsers; clear 80.6 ms / fair 78.2 / squall 82.8 / storm 74.1 / fog 68.3; 86156 verts; worst 12.1 fps; combat: foe hull 1.00 -> 0.65, rig 1.00 -> 0.91). No regression vs run 7/6.
 - Change: tests only (`scripts/combat-tests.ts`, "drop weapon" block): locates the charge's splash point from a dropBlast event, then parks one ship 1 m inside and one 1 m outside DROP_RADIUS; asserts the inner is hit (hull 0.900) and the outer untouched (1.000). Also imports DROP_RADIUS. No src change.
