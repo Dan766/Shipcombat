@@ -15,6 +15,7 @@ import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { waveHeight, waveNormal } from '../src/sim/waves.ts';
 import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
+import { WEATHER, WEATHER_ORDER, type WeatherId } from '../src/data/weather.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
 import { TICK_HZ } from '../src/sim/types.ts';
@@ -600,6 +601,37 @@ console.log('\nwave field');
     const gz = waveHeight(x, z + 0.1, amp) - waveHeight(x, z - 0.1, amp);
     return Math.abs(gx) < 1e-3 || n[0] * gx < 0 ? (Math.abs(gz) < 1e-3 || n[2] * gz < 0) : false;
   }));
+}
+
+/* --- weather scales ship speed ---------------------------------------- */
+console.log('\nweather wind strength');
+{
+  function topSpeedIn(weather: WeatherId): number {
+    const w = new World({ weather, windFrom: Math.PI });
+    w.addShip(1, 'brig', 0, 0, 0); // running with the wind
+    let peak = 0; // peak, not final: a fast ship reaches the arena wall, which halves speed
+    for (let t = 0; t < TICK_HZ * 40; t++) {
+      w.applyCommand(1, hold({ sail: 1 }));
+      w.step();
+      peak = Math.max(peak, w.ships[0].speed);
+    }
+    return peak;
+  }
+  const speeds = {} as Record<WeatherId, number>;
+  for (const id of WEATHER_ORDER) speeds[id] = topSpeedIn(id);
+  check('WEATHER_ORDER lists every preset exactly once',
+    WEATHER_ORDER.length === Object.keys(WEATHER).length && new Set(WEATHER_ORDER).size === WEATHER_ORDER.length);
+  check('every preset has a positive wind strength and matching id',
+    WEATHER_ORDER.every((id) => WEATHER[id].windStrength > 0 && WEATHER[id].id === id));
+  const ids = [...WEATHER_ORDER].sort((a, b) => WEATHER[a].windStrength - WEATHER[b].windStrength);
+  let ordered = true;
+  for (let i = 1; i < ids.length; i++) {
+    if (WEATHER[ids[i]].windStrength > WEATHER[ids[i - 1]].windStrength && !(speeds[ids[i]] > speeds[ids[i - 1]])) ordered = false;
+  }
+  check('stronger wind means a faster top speed', ordered,
+    ids.map((id) => `${id} ${speeds[id].toFixed(2)}`).join(', '));
+  check('calm weather is slower than fair', speeds.clear < speeds.fair,
+    `clear ${speeds.clear.toFixed(2)} vs fair ${speeds.fair.toFixed(2)} m/s`);
 }
 
 console.log('');

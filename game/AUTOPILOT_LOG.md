@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-28 (UTC, run 13) — weather wind-strength test coverage
+- Baseline: merge no-op; verify (layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 12 numbers stand.
+- Change: tests only (`scripts/combat-tests.ts`, new "weather wind strength" block): WEATHER_ORDER covers every preset once, ids match keys, wind strengths positive, and a brig running before the wind has a higher peak speed in stronger weather (fog 3.00, clear 3.30, fair 6.00, squall 8.10, storm 9.60 m/s). No src change.
+- Finding: measure peak, not final speed: a fast ship hits the arena wall within 40 s and the clamp halves speed each tick (final squall/storm speed read 0.07). Expected clamp behaviour, not a bug.
+- Verification: verify green after.
+- Ideas: sweep duels for time-to-decide after the flee-vs-wind change; storm frigate duel still ~577 s; test heel/oceanAmp consumers; brace / crew / grape shot still undesigned.
+
 ## 2026-10-28 (UTC, run 12) — determinism hash sensitivity test
 - Baseline: merge no-op; verify (layering, determinism, combat) green, build green, verify:render green (Chromium at /opt/pw-browsers/chromium-1243/chrome-linux64/chrome; clear 93.8 ms / fair 95.8 / squall 96.5 / storm 95.7 / fog 89.2; 86156 verts; worst 10.4 fps; combat: foe hull 1.00 -> 0.48, rig 1.00 -> 0.87). Frame times ~25% above run 11 with identical geometry; slower host (worst fps 10.4 vs 12.6), not a code change.
 - Change: tests only (`scripts/determinism.ts`): `run` takes a wind direction; asserts the world hash differs under a changed wind direction, a negated command log, and one fewer tick, so "identical hash across runs" can't pass vacuously. No src change.
