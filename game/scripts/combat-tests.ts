@@ -10,7 +10,7 @@
 
 import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, stepProjectile, MUZZLE_SPEED, MAX_RANGE, MIN_RANGE, GRAVITY, type Projectile } from '../src/sim/ballistics.ts';
-import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency } from '../src/sim/combat.ts';
+import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency, applyHit, fireVolley } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { waveHeight, waveNormal } from '../src/sim/waves.ts';
@@ -654,6 +654,41 @@ console.log('\nstepProjectile');
   const q: Projectile = { id: 2, ownerId: 1, ammo: 'round', x: 0, y: 5, z: 0, vx: 0, vy: 0, vz: 0, age: 0 };
   stepProjectile(q, 1);
   check('gravity pulls a stationary shot down at g', Math.abs(q.vy + GRAVITY) < 1e-9 && q.y < 5);
+}
+
+console.log('\napplyHit and fireVolley');
+{
+  const w = new World({ weather: 'clear' });
+  w.addShip(1, 'brig', 0, 0, 0);
+  const s = w.ships[0];
+  const cls = SHIP_CLASSES[s.cls];
+  const sank = applyHit(s, 'round');
+  check('round shot damages hull by DAMAGE_PER_BALL / hullHp',
+    !sank && Math.abs((1 - s.hull) - DAMAGE_PER_BALL / cls.combat.hullHp) < 1e-9);
+  check('round shot hurts hull more than rig', 1 - s.hull > 1 - s.rig);
+  const c = w.ships[0]; c.hull = 1; c.rig = 1;
+  applyHit(c, 'chain');
+  check('chain shot hurts rig more than hull', 1 - c.rig > 1 - c.hull);
+  c.hull = 0.001; c.rig = 0.001;
+  check('a lethal hit reports sunk and clamps at zero', applyHit(c, 'round') && c.hull === 0 && c.rig >= 0);
+
+  let id = 0;
+  const nextId = () => ++id;
+  const f = new World({ weather: 'clear' });
+  f.addShip(1, 'brig', 0, 0, 0);
+  const sh = f.ships[0];
+  const g = SHIP_CLASSES[sh.cls].combat;
+  const star = fireVolley(sh, 'starboard', 120, 'round', 0, 1, nextId);
+  const port = fireVolley(sh, 'port', 120, 'round', 0, 1, nextId);
+  const bow = fireVolley(sh, 'bow', 120, 'round', 0, 1, nextId);
+  check('broadside fires gunsPerSide balls, bow fires bowChasers', star.length === g.gunsPerSide && port.length === g.gunsPerSide && bow.length === g.bowChasers.guns);
+  check('starboard shots go +x, port shots -x (heading north)', star.every(p => p.vx > 0) && port.every(p => p.vx < 0));
+  check('bow chasers always load chain', bow.every(p => p.ammo === 'chain') && star.every(p => p.ammo === 'round'));
+  check('shots carry the shooter id and unique ids', star.every(p => p.ownerId === 1) && new Set([...star, ...port, ...bow].map(p => p.id)).size === star.length + port.length + bow.length);
+  const again = fireVolley(sh, 'starboard', 120, 'round', 0, 1, () => 0);
+  check('same tick gives the same spread (deterministic)', again.every((p, i) => p.vx === star[i].vx && p.vz === star[i].vz));
+  const spread = (hold: number) => { const v = fireVolley(sh, 'starboard', 120, 'round', hold, 1, nextId).map(p => Math.atan2(p.vz, p.vx)); return Math.max(...v) - Math.min(...v); };
+  check('holding aim narrows the pattern', spread(1) < spread(0));
 }
 
 console.log('');
