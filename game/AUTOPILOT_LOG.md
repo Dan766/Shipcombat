@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-28 (UTC, run 12) — determinism hash sensitivity test
+- Baseline: merge no-op; verify (layering, determinism, combat) green, build green, verify:render green (Chromium at /opt/pw-browsers/chromium-1243/chrome-linux64/chrome; clear 93.8 ms / fair 95.8 / squall 96.5 / storm 95.7 / fog 89.2; 86156 verts; worst 10.4 fps; combat: foe hull 1.00 -> 0.48, rig 1.00 -> 0.87). Frame times ~25% above run 11 with identical geometry; slower host (worst fps 10.4 vs 12.6), not a code change.
+- Change: tests only (`scripts/determinism.ts`): `run` takes a wind direction; asserts the world hash differs under a changed wind direction, a negated command log, and one fewer tick, so "identical hash across runs" can't pass vacuously. No src change.
+- Verification: verify and build green after. Render not rerun: no src/ change.
+- Skipped: the run-11 idea "test wind gust determinism" is moot: wind is a constant `windFrom` with no gust/time variation in `src/sim/wind.ts` or `world.ts`. Brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide after the flee-vs-wind change; storm frigate duel still ~577 s; test that setClass/setWeather mid-run keep determinism across more switch orderings.
+
 ## 2026-10-28 (UTC, run 11) — fleeing bot avoids irons
 - Baseline: merge no-op; verify (layering, determinism, combat) green, build green, verify:render green (Chromium /opt/pw-browsers; clear 73.2 ms / fair 76.3 / squall 72.3 / storm 77.8 / fog 74.1; 86156 verts; worst 12.8 fps; combat: foe hull 1.00 -> 0.63, rig 1.00 -> 0.91).
 - Change: `src/sim/bot.ts` — `botCommand` takes an optional `windFrom` (passed by `World`). A fleeing bot whose straight-away heading is within ~50 deg of the wind (irons, ~0.12x speed) now bears off to the nearest heading at 50 deg off the wind instead, so the runner keeps way on. Tests: new "bot flee vs wind" block in `scripts/combat-tests.ts` (beam wind / no wind info unchanged; both bear-off sides; heading is out of irons).
