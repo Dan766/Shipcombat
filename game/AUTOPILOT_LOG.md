@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-28 (UTC, run 11) — fleeing bot avoids irons
+- Baseline: merge no-op; verify (layering, determinism, combat) green, build green, verify:render green (Chromium /opt/pw-browsers; clear 73.2 ms / fair 76.3 / squall 72.3 / storm 77.8 / fog 74.1; 86156 verts; worst 12.8 fps; combat: foe hull 1.00 -> 0.63, rig 1.00 -> 0.91).
+- Change: `src/sim/bot.ts` — `botCommand` takes an optional `windFrom` (passed by `World`). A fleeing bot whose straight-away heading is within ~50 deg of the wind (irons, ~0.12x speed) now bears off to the nearest heading at 50 deg off the wind instead, so the runner keeps way on. Tests: new "bot flee vs wind" block in `scripts/combat-tests.ts` (beam wind / no wind info unchanged; both bear-off sides; heading is out of irons).
+- Verification: verify and build green. Render after: clear 75.0 / fair 70.7 / squall 71.0 / storm 79.3 / fog 68.2 ms, 86156 verts, worst 12.6 fps, foe hull 1.00 -> 0.65 (no regression; sim-only). Existing duel-decided tests still pass.
+- Skipped: no duel sweep measuring how much longer or shorter fleeing duels now run; 50 deg threshold is a guess (difficulty knob for the human). Brace / crew / grape shot still undesigned.
+- Ideas: sweep 9 duels for time-to-decide after this change; storm frigate duel still ~577 s; test wind-direction/gust determinism over time.
+
 ## 2026-10-27 (UTC, run 10) — wave field test coverage
 - Baseline: merge no-op; verify (layering, determinism, combat) green, build green. verify:render NOT run this time (tests-only change, no src/ change; numbers from run 9 stand).
 - Change: tests only (`scripts/combat-tests.ts`, new "wave field" block): `waveHeight`/`waveNormal` were untested. Asserts height bound (sum of amplitudes), purity, linear scaling with amplitude, flat sea with upright normal at amp 0, unit upward normals, no calming far from origin (near 1.91 vs far 1.92 peak), normal leans downhill. No src change.

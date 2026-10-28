@@ -134,7 +134,7 @@ export class World {
       let cmd = this.pending.get(ship.id);
       if (ship.bot) {
         const target = this.ships.find((s) => s.id !== ship.id && s.sinking === 0);
-        cmd = botCommand(ship, target, ship.bot);
+        cmd = botCommand(ship, target, ship.bot, this.windFrom);
       }
 
       let turn = 0;

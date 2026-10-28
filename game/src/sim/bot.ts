@@ -13,7 +13,7 @@
 
 import { MAX_RANGE, MIN_RANGE } from './ballistics.ts';
 import { TICK_HZ, type Command, type ShipState } from './types.ts';
-import { normalizeAngle } from './wind.ts';
+import { angleOffWind, normalizeAngle } from './wind.ts';
 
 /** Range the bot tries to hold, in metres. Inside its guns, outside a ram. */
 const PREFERRED_RANGE = 130;
@@ -29,6 +29,8 @@ const STERN_RANGE = 18;
 const AIM_RAMP_TICKS = TICK_HZ;
 /** Own hull fraction below which the bot breaks off, if it is losing the duel. */
 const FLEE_HULL = 0.3;
+/** Closest a fleeing bot will point to the wind (rad): ~50 deg, out of irons. */
+const FLEE_MIN_WIND_ANGLE = 0.87;
 
 export interface BotMemory {
   seq: number;
@@ -42,7 +44,7 @@ export function newBotMemory(): BotMemory {
   return { seq: 0, circleDir: 1, aimHold: 0 };
 }
 
-export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory): Command {
+export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory, windFrom?: number): Command {
   const idle: Command = {
     seq: mem.seq++, turn: 0, sail: 1, fire: null, aimRange: PREFERRED_RANGE, ammo: 'round', aimHold: 0,
   };
@@ -69,7 +71,15 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   const chasing = quarry && range > PREFERRED_RANGE * 0.7;
   // Once on top of a quarry, hold the beam without opening the range: backing
   // off to the preferred range just let it sail clear and the duel oscillated.
-  const desired = fleeing ? normalizeAngle(bearing + Math.PI)
+  // Running straight away is no escape if that heading is dead into the wind
+  // (irons: ~0.12x speed), so a fleeing bot bears off to the nearest heading
+  // that still has way on.
+  let away = normalizeAngle(bearing + Math.PI);
+  if (fleeing && windFrom !== undefined && angleOffWind(away, windFrom) < FLEE_MIN_WIND_ANGLE) {
+    const side = normalizeAngle(away - windFrom) < 0 ? -1 : 1;
+    away = normalizeAngle(windFrom + side * FLEE_MIN_WIND_ANGLE);
+  }
+  const desired = fleeing ? away
     : chasing ? bearing
       : quarry ? normalizeAngle(bearing - (Math.PI / 2) * mem.circleDir)
         : normalizeAngle(bearing - wantOffset);

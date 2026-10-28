@@ -276,6 +276,26 @@ console.log('\nbot disengage');
   check('a hurt bot that is winning keeps fighting (turns in, not away)', botCommand(bot, target, newBotMemory()).turn > -0.2);
 }
 
+console.log('\nbot flee vs wind');
+{
+  // Target dead ahead (+z) of the bot, so "away" is due south (heading PI).
+  const w = new World({ weather: 'fair' });
+  w.addShip(1, 'brig', 0, 200, 0);
+  w.addShip(2, 'brig', 0, 0, Math.PI, true);
+  const [target, bot] = w.ships;
+  bot.hull = 0.2;
+  const beam = botCommand(bot, target, newBotMemory(), Math.PI / 2);
+  check('with the wind abeam it runs straight away', Math.abs(beam.turn) < 0.05, `turn ${beam.turn.toFixed(2)}`);
+  const unaware = botCommand(bot, target, newBotMemory());
+  check('without wind info it runs straight away', Math.abs(unaware.turn) < 0.05);
+  const a = botCommand(bot, target, newBotMemory(), Math.PI - 0.1);
+  check('away heading dead into the wind: bears off (positive side)', a.turn > 0.9, `turn ${a.turn.toFixed(2)}`);
+  const b = botCommand(bot, target, newBotMemory(), Math.PI + 0.1);
+  check('bears off to the other side when the wind is on that side', b.turn < -0.9, `turn ${b.turn.toFixed(2)}`);
+  // The bear-off heading has real way on: >= close-hauled speed, not irons.
+  check('the bear-off heading is out of irons', pointOfSail(0.87) > 0.6, `x${pointOfSail(0.87).toFixed(2)}`);
+}
+
 console.log('\nbot pursuit');
 {
   const w = new World({ weather: 'fair' });
