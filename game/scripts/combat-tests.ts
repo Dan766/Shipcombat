@@ -9,7 +9,7 @@
  */
 
 import { World, ARENA_HALF } from '../src/sim/world.ts';
-import { elevationForRange, timeOfFlight, MUZZLE_SPEED, MAX_RANGE } from '../src/sim/ballistics.ts';
+import { elevationForRange, timeOfFlight, stepProjectile, MUZZLE_SPEED, MAX_RANGE, MIN_RANGE, GRAVITY, type Projectile } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
@@ -632,6 +632,28 @@ console.log('\nweather wind strength');
     ids.map((id) => `${id} ${speeds[id].toFixed(2)}`).join(', '));
   check('calm weather is slower than fair', speeds.clear < speeds.fair,
     `clear ${speeds.clear.toFixed(2)} vs fair ${speeds.fair.toFixed(2)} m/s`);
+}
+
+console.log('\nstepProjectile');
+{
+  const dt = 1 / TICK_HZ;
+  const fly = (range: number) => {
+    const th = elevationForRange(range);
+    const p: Projectile = { id: 1, ownerId: 1, ammo: 'round', x: 0, y: 0, z: 0,
+      vx: MUZZLE_SPEED * Math.cos(th), vy: MUZZLE_SPEED * Math.sin(th), vz: 0, age: 0 };
+    while (p.y >= 0) stepProjectile(p, dt);
+    return p;
+  };
+  const p = fly(120);
+  check('a shot aimed at 120 m lands within a tick of travel of it', Math.abs(p.x - 120) < MUZZLE_SPEED * dt,
+    `landed at ${p.x.toFixed(1)} m`);
+  check('age counts one per step', p.age === Math.round(p.age) && p.age > 0, `${p.age} ticks`);
+  check('longer aim range lands farther', fly(200).x > fly(120).x && fly(120).x > fly(60).x);
+  check('range is clamped to MIN_RANGE and MAX_RANGE',
+    elevationForRange(1) === elevationForRange(MIN_RANGE) && elevationForRange(9999) === elevationForRange(MAX_RANGE));
+  const q: Projectile = { id: 2, ownerId: 1, ammo: 'round', x: 0, y: 5, z: 0, vx: 0, vy: 0, vz: 0, age: 0 };
+  stepProjectile(q, 1);
+  check('gravity pulls a stationary shot down at g', Math.abs(q.vy + GRAVITY) < 1e-9 && q.y < 5);
 }
 
 console.log('');

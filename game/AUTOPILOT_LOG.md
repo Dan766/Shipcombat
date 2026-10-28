@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-28 (UTC, run 14) — projectile stepping test coverage
+- Baseline: merge no-op; verify (layering, determinism, combat) green, build green, verify:render green (Chromium /opt/pw-browsers/chromium-1243; combat: foe hull 1.00 -> 0.49, rig 1.00 -> 0.87; worst 8.6 fps, slow host). Per-weather frame times and vert count cut off from my output (tail only), not recorded.
+- Change: tests only (`scripts/combat-tests.ts`, new "stepProjectile" block): `stepProjectile` was untested. Asserts a shot aimed at 120 m lands within one tick of travel (118.0 m), age counts steps, farther aim lands farther, aim range clamps to MIN_RANGE/MAX_RANGE, gravity pulls a stationary shot at g. No src change.
+- Verification: verify and build green after. Render not rerun: no src/ change.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: test `applyHit` and `fireVolley` directly; sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-28 (UTC, run 13) — weather wind-strength test coverage
 - Baseline: merge no-op; verify (layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 12 numbers stand.
 - Change: tests only (`scripts/combat-tests.ts`, new "weather wind strength" block): WEATHER_ORDER covers every preset once, ids match keys, wind strengths positive, and a brig running before the wind has a higher peak speed in stronger weather (fog 3.00, clear 3.30, fair 6.00, squall 8.10, storm 9.60 m/s). No src change.
