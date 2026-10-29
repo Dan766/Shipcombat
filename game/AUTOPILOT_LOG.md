@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-29 (UTC, run 19) — world command handling test coverage
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
+- Change: tests only (`scripts/combat-tests.ts`, new "world command handling" block): ready mount fires and empties, reloading mount refuses to fire, other broadside unaffected, port reload takes reloadSec (4.53 s vs 4.5), ackSeq follows the player and never moves backwards, sail/turn clamping, setWeather shows in snapshot. No src change.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sinking ships are not clamped to the arena wall (they drift on); sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-29 (UTC, run 18) — look-sector bearing wrap
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green (first `npm ci` failed transiently, second passed). verify:render NOT run: one-line sim change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/lookSector.ts` `inLookArc` now folds any bearing into [0,360) first, closing the run 17 finding (bearings like -450 deg matched no sector). main.ts already normalizes yaw, so no live bug; this is hardening. Test: "bearings beyond one revolution fold onto the same sector" in `scripts/combat-tests.ts`.

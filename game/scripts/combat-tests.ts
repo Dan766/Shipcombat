@@ -569,6 +569,52 @@ console.log('\nworld rules');
   check('a sinking hull is not a target', !hitsShip(d.ships[0], 0, 0, 0));
 }
 
+/* --- world command handling ---------------------------------------------- */
+console.log('\nworld command handling');
+{
+  // Reload: a fired mount refills in exactly reloadSec and cannot fire sooner.
+  const sloop = SHIP_CLASSES.sloop;
+  const w = new World({ weather: 'clear' });
+  w.addShip(1, 'sloop', 0, 0, 0);
+  w.applyCommand(1, hold({ fire: 'port' })); w.step();
+  const muzzles = () => w.snapshot().events.filter((e) => e.kind === 'muzzle').length;
+  check('a ready mount fires and empties its reload', muzzles() === 1 && w.ships[0].reloadPort < 0.1);
+  w.applyCommand(1, hold({ fire: 'port' })); w.step();
+  check('a reloading mount does not fire', muzzles() === 0);
+  check('the other broadside is untouched by the port shot', w.ships[0].reloadStbd === 1);
+  let ticks = 2;
+  while (w.ships[0].reloadPort < 1 && ticks < TICK_HZ * 60) { w.applyCommand(1, hold()); w.step(); ticks++; }
+  const secs = ticks / TICK_HZ;
+  check('port reload takes reloadSec', Math.abs(secs - sloop.combat.reloadSec) < 0.2,
+    `${secs.toFixed(2)} s vs ${sloop.combat.reloadSec}`);
+
+  // Acks: players advance ackSeq (never backwards); bots do not.
+  const a = new World({ weather: 'clear' });
+  a.addShip(1, 'sloop', 0, 0, 0);
+  a.addShip(2, 'sloop', 100, 0, 0, true);
+  a.applyCommand(1, hold({ seq: 7 })); a.step();
+  check('ackSeq follows the player command', a.ackSeq === 7);
+  a.applyCommand(1, hold({ seq: 3 })); a.step();
+  check('ackSeq never moves backwards', a.ackSeq === 7);
+  check('snapshot carries ackSeq', a.snapshot().ackSeq === 7);
+
+  // Command values are clamped to legal ranges.
+  const c = new World({ weather: 'clear' });
+  c.addShip(1, 'sloop', 0, 0, 0);
+  c.applyCommand(1, hold({ turn: 5, sail: 3 })); c.step();
+  check('sail trim is clamped to 0..1', c.ships[0].sail === 1);
+  const turned = Math.abs(c.ships[0].heading);
+  const d = new World({ weather: 'clear' });
+  d.addShip(1, 'sloop', 0, 0, 0);
+  d.applyCommand(1, hold({ turn: 1, sail: 0 })); d.step();
+  check('turn input beyond +-1 turns no faster than full rudder',
+    Math.abs(turned - Math.abs(d.ships[0].heading)) < 1e-12);
+
+  // Weather control changes the weather and is reported in snapshots.
+  c.applyControl({ kind: 'setWeather', weather: 'storm' });
+  check('setWeather is reflected in the snapshot', c.snapshot().weather === 'storm');
+}
+
 /* --- points of sail ----------------------------------------------------- */
 {
   console.log('\npoints of sail');
