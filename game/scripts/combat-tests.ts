@@ -526,6 +526,10 @@ console.log('\nlook sectors');
     armedMountFor(-90, null) === 'port' && armedMountFor(90, null) === 'starboard');
   check('bow holds across the 0/360 seam in either direction',
     armedMountFor(-10, 'bow') === 'bow' && armedMountFor(350, 'bow') === 'bow' && armedMountFor(0, null) === 'bow');
+  check('bearings beyond one revolution fold onto the same sector',
+    armedMountFor(-450, null) === 'port' && armedMountFor(450, null) === 'starboard' &&
+    armedMountFor(720, null) === 'bow' && armedMountFor(540, null) === 'stern' &&
+    armedMountFor(-360 - 90, 'port') === 'port');
 }
 
 /* --- world rules around the edges ------------------------------------- */

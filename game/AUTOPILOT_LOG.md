@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-29 (UTC, run 18) — look-sector bearing wrap
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green (first `npm ci` failed transiently, second passed). verify:render NOT run: one-line sim change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/lookSector.ts` `inLookArc` now folds any bearing into [0,360) first, closing the run 17 finding (bearings like -450 deg matched no sector). main.ts already normalizes yaw, so no live bug; this is hardening. Test: "bearings beyond one revolution fold onto the same sector" in `scripts/combat-tests.ts`.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide; storm frigate duel still ~577 s; test heel/oceanAmp consumers (renderer-only, `heel` has no sim consumer).
+
 ## 2026-10-29 (UTC, run 17) — look-sector hysteresis test coverage
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
 - Change: tests only (`scripts/combat-tests.ts`, "look sectors" block): hysteresis band edges (bow holds to +4 deg past the seam and releases at 4.5; starboard likewise from below), a bearing and the same +360 deg agree, stern covers +-180, port -90 / starboard +90, bow holds across the 0/360 seam. No src change.

@@ -35,6 +35,7 @@ export const LOOK_ARCS: LookArc[] = [
 export const LOOK_HYSTERESIS_DEG = 4;
 
 function inLookArc(bearingDeg: number, arc: LookArc, pad: number): boolean {
+  bearingDeg = ((bearingDeg % 360) + 360) % 360;
   for (const off of [-360, 0, 360]) {
     const b = bearingDeg + off;
     if (b >= arc.from - pad && b <= arc.to + pad) return true;
