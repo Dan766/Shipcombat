@@ -10,7 +10,7 @@
 
 import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, stepProjectile, MUZZLE_SPEED, MAX_RANGE, MIN_RANGE, GRAVITY, type Projectile } from '../src/sim/ballistics.ts';
-import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency, applyHit, fireVolley } from '../src/sim/combat.ts';
+import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency, applyHit, fireVolley, fireDropWeapon } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { waveHeight, waveNormal } from '../src/sim/waves.ts';
@@ -689,6 +689,22 @@ console.log('\napplyHit and fireVolley');
   check('same tick gives the same spread (deterministic)', again.every((p, i) => p.vx === star[i].vx && p.vz === star[i].vz));
   const spread = (hold: number) => { const v = fireVolley(sh, 'starboard', 120, 'round', hold, 1, nextId).map(p => Math.atan2(p.vz, p.vx)); return Math.max(...v) - Math.min(...v); };
   check('holding aim narrows the pattern', spread(1) < spread(0));
+}
+
+console.log('\nfireDropWeapon');
+{
+  const w = new World({ weather: 'clear' });
+  w.addShip(1, 'brig', 0, 0, 0);
+  const s = w.ships[0];
+  s.speed = 5;
+  const cls = SHIP_CLASSES[s.cls];
+  const d = fireDropWeapon(s, 7, () => 42);
+  check('drop charge uses the given id, shooter id and drop ammo', d.id === 42 && d.ownerId === 1 && d.ammo === 'drop');
+  check('drop charge starts with no vertical speed', d.vy === 0);
+  check('drop charge carries 0.6x ship motion (heading north)', Math.abs(d.vz - 3) < 1e-9 && Math.abs(d.vx) < 1e-9);
+  check('drop charge starts astern of the ship', d.z < s.z && Math.abs(d.z + cls.geo.len * 0.55) < 1e-6);
+  const again = fireDropWeapon(s, 7, () => 0);
+  check('same tick gives the same drop position (deterministic)', again.x === d.x && again.z === d.z);
 }
 
 console.log('');
