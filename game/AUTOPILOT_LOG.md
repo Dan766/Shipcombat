@@ -1,5 +1,13 @@
 # Autopilot log
 
+## 2026-10-29 (UTC, run 17) — look-sector hysteresis test coverage
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
+- Change: tests only (`scripts/combat-tests.ts`, "look sectors" block): hysteresis band edges (bow holds to +4 deg past the seam and releases at 4.5; starboard likewise from below), a bearing and the same +360 deg agree, stern covers +-180, port -90 / starboard +90, bow holds across the 0/360 seam. No src change.
+- Finding: `inLookArc` only folds one revolution (offsets -360/0/+360), so a bearing like -450 deg is not covered by any sector (falls back to last/'bow'). Not a bug while camera yaw stays within about +-360; noted in case yaw ever accumulates unwrapped.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide; storm frigate duel still ~577 s; test heel/oceanAmp consumers; check camera yaw is wrapped before it reaches armedMountFor.
+
 ## 2026-10-29 (UTC, run 16) — fireDropWeapon test coverage
 - Baseline: merge no-op; verify (layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
 - Change: tests only (`scripts/combat-tests.ts`, new "fireDropWeapon" block): id/owner/ammo, zero vertical speed, 0.6x ship motion, spawn point astern at 0.55 hull lengths, same-tick determinism. No src change.

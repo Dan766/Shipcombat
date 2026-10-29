@@ -14,7 +14,7 @@ import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency, applyHit, 
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { waveHeight, waveNormal } from '../src/sim/waves.ts';
-import { armedMountFor, LOOK_ARCS } from '../src/sim/lookSector.ts';
+import { armedMountFor, LOOK_ARCS, LOOK_HYSTERESIS_DEG } from '../src/sim/lookSector.ts';
 import { WEATHER, WEATHER_ORDER, type WeatherId } from '../src/data/weather.ts';
 import { SHIP_CLASSES } from '../src/data/shipClasses.ts';
 import type { Command } from '../src/sim/types.ts';
@@ -505,6 +505,27 @@ console.log('\nlook sectors');
     armedMountFor(seam, 'bow') === 'bow' && armedMountFor(seam, 'starboard') === 'starboard');
   check('a bearing well clear of the seam ignores stale state',
     armedMountFor(90, 'bow') === 'starboard');
+
+  // Hysteresis band is +-LOOK_HYSTERESIS_DEG: held just inside, released just outside.
+  const pad = LOOK_HYSTERESIS_DEG;
+  check('bow holds up to the hysteresis edge and releases just past it',
+    armedMountFor(30 + pad, 'bow') === 'bow' && armedMountFor(30 + pad + 0.5, 'bow') === 'starboard');
+  check('starboard holds just below its lower edge and releases past it',
+    armedMountFor(30 - pad, 'starboard') === 'starboard' && armedMountFor(30 - pad - 0.5, 'starboard') === 'bow');
+
+  // Continuous domain: inLookArc folds one revolution either side, so a
+  // bearing and the same bearing +360 deg (yaw that has gone round once) agree.
+  let mismatch = 0;
+  for (let b = -180; b <= 180; b += 7.5) {
+    const base = armedMountFor(b, null);
+    if (armedMountFor(b + 360, null) !== base) mismatch++;
+  }
+  check('a bearing and the same bearing +360 deg pick the same sector', mismatch === 0, `${mismatch} mismatches`);
+  check('stern covers both +180 and -180; port is -90, starboard +90',
+    armedMountFor(180, null) === 'stern' && armedMountFor(-180, null) === 'stern' &&
+    armedMountFor(-90, null) === 'port' && armedMountFor(90, null) === 'starboard');
+  check('bow holds across the 0/360 seam in either direction',
+    armedMountFor(-10, 'bow') === 'bow' && armedMountFor(350, 'bow') === 'bow' && armedMountFor(0, null) === 'bow');
 }
 
 /* --- world rules around the edges ------------------------------------- */
