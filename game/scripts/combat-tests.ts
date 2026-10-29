@@ -567,6 +567,18 @@ console.log('\nworld rules');
   d.addShip(1, 'sloop', 0, 0, 0);
   d.ships[0].sinking = 50;
   check('a sinking hull is not a target', !hitsShip(d.ships[0], 0, 0, 0));
+
+  // A wreck drifting at the wall stays inside the arena until it respawns.
+  const e = new World({ weather: 'clear' });
+  e.addShip(1, 'sloop', 0, 0, 0);
+  const w = e.ships[0];
+  w.x = ARENA_HALF - 0.01; w.z = ARENA_HALF - 0.01; w.heading = Math.PI / 4; w.speed = 8; w.sinking = 40;
+  let maxOut = 0;
+  for (let t = 0; t < 30; t++) {
+    e.step();
+    maxOut = Math.max(maxOut, Math.abs(w.x) - ARENA_HALF, Math.abs(w.z) - ARENA_HALF);
+  }
+  check('a sinking ship stays inside the arena', maxOut <= 1e-9, `overshoot ${maxOut.toFixed(3)}`);
 }
 
 /* --- world command handling ---------------------------------------------- */

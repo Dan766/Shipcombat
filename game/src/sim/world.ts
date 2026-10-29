@@ -126,6 +126,8 @@ export class World {
         ship.speed *= 0.94;
         ship.x += Math.sin(ship.heading) * ship.speed * DT;
         ship.z += Math.cos(ship.heading) * ship.speed * DT;
+        ship.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, ship.x));
+        ship.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, ship.z));
         if (ship.sinking === 0) this.respawn(ship);
         continue;
       }

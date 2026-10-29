@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-29 (UTC, run 20) — sinking ships stay inside the arena
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: one-line sim change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` clamps a sinking ship's drift to ARENA_HALF (previously only live ships were clamped, so a wreck at the wall drifted outside). Test: "a sinking ship stays inside the arena" in the "world rules" block; fails without the fix (overshoot 2.48 m), passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide; storm frigate duel still ~577 s; test heel/oceanAmp consumers.
+
 ## 2026-10-29 (UTC, run 19) — world command handling test coverage
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
 - Change: tests only (`scripts/combat-tests.ts`, new "world command handling" block): ready mount fires and empties, reloading mount refuses to fire, other broadside unaffected, port reload takes reloadSec (4.53 s vs 4.5), ackSeq follows the player and never moves backwards, sail/turn clamping, setWeather shows in snapshot. No src change.
