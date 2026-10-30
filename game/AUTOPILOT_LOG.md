@@ -1,5 +1,13 @@
 # Autopilot log
 
+## 2026-10-30 (UTC, run 21) — timeOfFlight test coverage
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
+- Change: tests only (`scripts/combat-tests.ts`, new "timeOfFlight and elevation edges" block): timeOfFlight agrees with the integrated flight time (within 2 ticks; 60 m 0.925 vs 0.900 s, 250 m 4.038 vs 4.033 s), sub-minimum range raised to MIN_RANGE, elevation monotone and under 45 deg, flight time capped at MAX_RANGE. No src change.
+- Finding: timeOfFlight is the ideal-ballistics value and runs about 0.025 s long at short range versus the fixed-step integrator; harmless.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide; storm frigate duel still ~577 s; test heel/oceanAmp consumers.
+
 ## 2026-10-29 (UTC, run 20) — sinking ships stay inside the arena
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: one-line sim change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/world.ts` clamps a sinking ship's drift to ARENA_HALF (previously only live ships were clamped, so a wreck at the wall drifted outside). Test: "a sinking ship stays inside the arena" in the "world rules" block; fails without the fix (overshoot 2.48 m), passes with it.

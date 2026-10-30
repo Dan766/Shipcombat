@@ -774,6 +774,23 @@ console.log('\napplyHit and fireVolley');
   check('holding aim narrows the pattern', spread(1) < spread(0));
 }
 
+console.log('\ntimeOfFlight and elevation edges');
+{
+  for (const range of [60, 120, 250]) {
+    const p: Projectile = { id: 1, ownerId: 1, ammo: 'round', x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, age: 0 };
+    const th = elevationForRange(range);
+    p.vz = MUZZLE_SPEED * Math.cos(th);
+    p.vy = MUZZLE_SPEED * Math.sin(th);
+    const dt = 1 / TICK_HZ;
+    while (p.y >= 0 && p.age < 10000) stepProjectile(p, dt);
+    check(`timeOfFlight(${range}) matches the integrated flight`, Math.abs(p.age * dt - timeOfFlight(range)) < 2 * dt,
+      `${(p.age * dt).toFixed(3)}s vs ${timeOfFlight(range).toFixed(3)}s`);
+  }
+  check('range below minimum is raised to MIN_RANGE', elevationForRange(1) === elevationForRange(MIN_RANGE));
+  check('elevation rises with range and stays under 45 deg', elevationForRange(250) > elevationForRange(60) && elevationForRange(250) < Math.PI / 4);
+  check('time of flight is capped at MAX_RANGE flight time', timeOfFlight(9999) === timeOfFlight(MAX_RANGE));
+}
+
 console.log('\nfireDropWeapon');
 {
   const w = new World({ weather: 'clear' });
