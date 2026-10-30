@@ -141,8 +141,10 @@ export class World {
 
       let turn = 0;
       if (cmd) {
-        turn = Math.max(-1, Math.min(1, cmd.turn));
-        ship.sail = Math.max(0, Math.min(1, cmd.sail));
+        // Math.min/max pass NaN through, and one NaN heading poisons the ship's
+        // position for good, so a malformed command reads as "no input".
+        turn = Number.isFinite(cmd.turn) ? Math.max(-1, Math.min(1, cmd.turn)) : 0;
+        if (Number.isFinite(cmd.sail)) ship.sail = Math.max(0, Math.min(1, cmd.sail));
         if (!ship.bot) this.ackSeq = Math.max(this.ackSeq, cmd.seq);
       }
 

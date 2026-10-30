@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-30 (UTC, run 22) — non-finite commands no longer poison a ship
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` treats a non-finite `turn` as 0 and ignores a non-finite `sail`. Math.min/max pass NaN through, so one malformed command (e.g. over the network) made heading/x/z NaN permanently. Test: "non-finite turn/sail keep heading, position and speed finite" in the "world command handling" block; fails without the fix (heading NaN), passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: validate other Command fields (aimRange, aimHold) for NaN at the net boundary; sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-30 (UTC, run 21) — timeOfFlight test coverage
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: tests-only change, no src/ change; run 14 numbers stand.
 - Change: tests only (`scripts/combat-tests.ts`, new "timeOfFlight and elevation edges" block): timeOfFlight agrees with the integrated flight time (within 2 ticks; 60 m 0.925 vs 0.900 s, 250 m 4.038 vs 4.033 s), sub-minimum range raised to MIN_RANGE, elevation monotone and under 45 deg, flight time capped at MAX_RANGE. No src change.

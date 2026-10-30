@@ -622,6 +622,16 @@ console.log('\nworld command handling');
   check('turn input beyond +-1 turns no faster than full rudder',
     Math.abs(turned - Math.abs(d.ships[0].heading)) < 1e-12);
 
+  // A malformed command (NaN / Infinity) must not poison the ship's state.
+  const bad = new World({ weather: 'clear' });
+  bad.addShip(1, 'sloop', 0, 0, 0);
+  bad.applyCommand(1, hold({ turn: NaN, sail: NaN })); bad.step();
+  bad.applyCommand(1, hold({ turn: Infinity, sail: -Infinity })); bad.step();
+  const bs = bad.ships[0];
+  check('non-finite turn/sail keep heading, position and speed finite',
+    [bs.heading, bs.x, bs.z, bs.speed, bs.sail].every(Number.isFinite),
+    `heading ${bs.heading} x ${bs.x} sail ${bs.sail}`);
+
   // Weather control changes the weather and is reported in snapshots.
   c.applyControl({ kind: 'setWeather', weather: 'storm' });
   check('setWeather is reflected in the snapshot', c.snapshot().weather === 'storm');
