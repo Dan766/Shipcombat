@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-30 (UTC, run 23) — non-finite aimRange/aimHold no longer create NaN shots
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` substitutes MIN_RANGE for a non-finite `aimRange` and 0 for a non-finite `aimHold` before `fireVolley` (NaN passed through Math.min/max and spawned NaN projectiles). Test: "non-finite aimRange/aimHold still fire finite projectiles" in "world command handling"; fails without the fix, passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: validate `fire`/`ammo` values at the net boundary; sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-30 (UTC, run 22) — non-finite commands no longer poison a ship
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/world.ts` treats a non-finite `turn` as 0 and ignores a non-finite `sail`. Math.min/max pass NaN through, so one malformed command (e.g. over the network) made heading/x/z NaN permanently. Test: "non-finite turn/sail keep heading, position and speed finite" in the "world command handling" block; fails without the fix (heading NaN), passes with it.

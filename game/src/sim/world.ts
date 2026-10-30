@@ -10,7 +10,7 @@
 
 import { SHIP_CLASSES, type ShipClassId } from '../data/shipClasses.ts';
 import { WEATHER, type WeatherId } from '../data/weather.ts';
-import { stepProjectile, type Projectile } from './ballistics.ts';
+import { stepProjectile, MIN_RANGE, type Projectile } from './ballistics.ts';
 import { botCommand, newBotMemory, type BotMemory } from './bot.ts';
 import { fireVolley, fireDropWeapon, hitsShip, applyHit, rigEfficiency, DROP_RADIUS } from './combat.ts';
 import type { CombatEvent, Command, ControlMessage, ShipState, Snapshot } from './types.ts';
@@ -185,7 +185,9 @@ export class World {
             this.projectiles.push(fireDropWeapon(ship, this.tick, () => this.nextProjectileId++));
             ship.reloadStern = 0;
           } else {
-            const volley = fireVolley(ship, mount, cmd.aimRange, cmd.ammo, cmd.aimHold, this.tick,
+            const volley = fireVolley(ship, mount,
+              Number.isFinite(cmd.aimRange) ? cmd.aimRange : MIN_RANGE, cmd.ammo,
+              Number.isFinite(cmd.aimHold) ? cmd.aimHold : 0, this.tick,
               () => this.nextProjectileId++);
             this.projectiles.push(...volley);
             if (mount === 'port') ship.reloadPort = 0;

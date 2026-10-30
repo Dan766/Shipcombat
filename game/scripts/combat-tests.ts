@@ -632,6 +632,15 @@ console.log('\nworld command handling');
     [bs.heading, bs.x, bs.z, bs.speed, bs.sail].every(Number.isFinite),
     `heading ${bs.heading} x ${bs.x} sail ${bs.sail}`);
 
+  // Non-finite aim values must not create NaN projectiles.
+  const aim = new World({ weather: 'clear' });
+  aim.addShip(1, 'sloop', 0, 0, 0);
+  aim.applyCommand(1, hold({ fire: 'port', aimRange: NaN, aimHold: NaN })); aim.step();
+  const shots = aim.projectiles;
+  check('non-finite aimRange/aimHold still fire finite projectiles',
+    shots.length > 0 && shots.every((p) => [p.x, p.y, p.z, p.vx, p.vy, p.vz].every(Number.isFinite)),
+    `${shots.length} shots`);
+
   // Weather control changes the weather and is reported in snapshots.
   c.applyControl({ kind: 'setWeather', weather: 'storm' });
   check('setWeather is reflected in the snapshot', c.snapshot().weather === 'storm');
