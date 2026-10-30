@@ -186,7 +186,7 @@ export class World {
             ship.reloadStern = 0;
           } else {
             const volley = fireVolley(ship, mount,
-              Number.isFinite(cmd.aimRange) ? cmd.aimRange : MIN_RANGE, cmd.ammo,
+              Number.isFinite(cmd.aimRange) ? cmd.aimRange : MIN_RANGE, cmd.ammo === 'chain' ? 'chain' : 'round',
               Number.isFinite(cmd.aimHold) ? cmd.aimHold : 0, this.tick,
               () => this.nextProjectileId++);
             this.projectiles.push(...volley);

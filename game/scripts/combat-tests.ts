@@ -641,6 +641,14 @@ console.log('\nworld command handling');
     shots.length > 0 && shots.every((p) => [p.x, p.y, p.z, p.vx, p.vy, p.vz].every(Number.isFinite)),
     `${shots.length} shots`);
 
+  // An unknown ammo id from a malformed command must not crash the hit step.
+  const badAmmo = new World({ weather: 'clear' }); badAmmo.addShip(1, 'sloop', 0, 0, 0); badAmmo.addShip(2, 'sloop', 40, 0, 0);
+  badAmmo.applyCommand(1, hold({ fire: 'starboard', aimRange: 40, ammo: 'bogus' as never }));
+  let threw = false;
+  try { for (let i = 0; i < 300; i++) badAmmo.step(); } catch { threw = true; }
+  check('unknown ammo id is treated as round shot and does not throw',
+    !threw && badAmmo.projectiles.every((p) => p.ammo === 'round' || p.ammo === 'chain'));
+
   // Weather control changes the weather and is reported in snapshots.
   c.applyControl({ kind: 'setWeather', weather: 'storm' });
   check('setWeather is reflected in the snapshot', c.snapshot().weather === 'storm');

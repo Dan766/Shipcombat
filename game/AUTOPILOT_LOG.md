@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-30 (UTC, run 24) — unknown ammo id no longer crashes the hit step
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` coerces any `cmd.ammo` other than 'chain' to 'round' before `fireVolley`. An unknown id made `AMMO[ammo]` undefined and `applyHit` threw a TypeError when the shot landed (a malformed network command could crash the sim). Test: "unknown ammo id is treated as round shot and does not throw" in "world command handling"; fails without the fix, passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: validate `fire` mount values at the net boundary (unknown mount currently acts as stern); sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-30 (UTC, run 23) — non-finite aimRange/aimHold no longer create NaN shots
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/world.ts` substitutes MIN_RANGE for a non-finite `aimRange` and 0 for a non-finite `aimHold` before `fireVolley` (NaN passed through Math.min/max and spawned NaN projectiles). Test: "non-finite aimRange/aimHold still fire finite projectiles" in "world command handling"; fails without the fix, passes with it.
