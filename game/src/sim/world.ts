@@ -173,7 +173,7 @@ export class World {
       ship.reloadBow = Math.min(1, ship.reloadBow + DT / def.combat.bowChasers.reloadSec);
       ship.reloadStern = Math.min(1, ship.reloadStern + DT / def.combat.dropWeapon.reloadSec);
 
-      if (cmd && cmd.fire) {
+      if (cmd && (cmd.fire === 'port' || cmd.fire === 'starboard' || cmd.fire === 'bow' || cmd.fire === 'stern')) {
         const mount = cmd.fire;
         const ready = mount === 'port' ? ship.reloadPort
           : mount === 'starboard' ? ship.reloadStbd

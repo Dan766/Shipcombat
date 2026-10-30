@@ -649,6 +649,14 @@ console.log('\nworld command handling');
   check('unknown ammo id is treated as round shot and does not throw',
     !threw && badAmmo.projectiles.every((p) => p.ammo === 'round' || p.ammo === 'chain'));
 
+  // An unknown mount from a malformed command must not fall through to the stern drop weapon.
+  const badMount = new World({ weather: 'clear' }); badMount.addShip(1, 'sloop', 0, 0, 0);
+  badMount.applyCommand(1, hold({ fire: 'bogus' as never }));
+  for (let i = 0; i < 5; i++) badMount.step();
+  const sternReady = badMount.snapshot().ships[0].reloadStern;
+  check('unknown fire mount fires nothing and keeps stern loaded',
+    badMount.projectiles.length === 0 && sternReady === 1, `${badMount.projectiles.length} projectiles`);
+
   // Weather control changes the weather and is reported in snapshots.
   c.applyControl({ kind: 'setWeather', weather: 'storm' });
   check('setWeather is reflected in the snapshot', c.snapshot().weather === 'storm');

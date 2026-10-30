@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-30 (UTC, run 25) — unknown fire mount no longer fires the stern weapon
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` only acts on `cmd.fire` when it is one of port/starboard/bow/stern; previously any other value fell through the ternary and fired the drop weapon. Test: "unknown fire mount fires nothing and keeps stern loaded" in "world command handling"; fails without the fix (4 projectiles), passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: sweep duels for time-to-decide; storm frigate duel still ~577 s; test heel/oceanAmp consumers.
+
 ## 2026-10-30 (UTC, run 24) — unknown ammo id no longer crashes the hit step
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/world.ts` coerces any `cmd.ammo` other than 'chain' to 'round' before `fireVolley`. An unknown id made `AMMO[ammo]` undefined and `applyHit` threw a TypeError when the shot landed (a malformed network command could crash the sim). Test: "unknown ammo id is treated as round shot and does not throw" in "world command handling"; fails without the fix, passes with it.
