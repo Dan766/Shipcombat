@@ -76,7 +76,9 @@ export class Interpolator {
         reloadStbd: sa.reloadStbd + (sb.reloadStbd - sa.reloadStbd) * t,
         reloadBow: sa.reloadBow + (sb.reloadBow - sa.reloadBow) * t,
         reloadStern: sa.reloadStern + (sb.reloadStern - sa.reloadStern) * t,
+        boost: sa.boost + (sb.boost - sa.boost) * t,
         // Discrete: a ship is sinking or it is not, so take the newer truth.
+        boosting: sb.boosting,
         sinking: sb.sinking,
       };
     });

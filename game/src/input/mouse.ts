@@ -9,8 +9,10 @@
 
 const YAW_SENS = 0.12; // degrees per pixel of mouse movement
 const PITCH_SENS = 0.1;
-const PITCH_MIN = -15; // looking down, toward the water
-const PITCH_MAX = 45;  // looking up, toward the rigging
+// Pitch is the orbit camera's elevation: higher pitch raises the camera and
+// so tilts the view *down* toward the water.
+const PITCH_MIN = -15; // camera low, looking up toward the rigging
+const PITCH_MAX = 45;  // camera high, looking down at the deck and water
 /** Seconds of holding aim to go from standing spread to fully narrowed. */
 const AIM_RAMP_SEC = 1.0;
 /** Releasing aim snaps back faster than holding it builds — the moment of
@@ -50,7 +52,7 @@ export class MouseLook {
     document.addEventListener('mousemove', (e) => {
       if (!this.locked) return;
       this.yawDeg += e.movementX * YAW_SENS;
-      this.pitchDeg = Math.max(PITCH_MIN, Math.min(PITCH_MAX, this.pitchDeg - e.movementY * PITCH_SENS));
+      this.pitchDeg = Math.max(PITCH_MIN, Math.min(PITCH_MAX, this.pitchDeg + e.movementY * PITCH_SENS));
     });
 
     document.addEventListener('mousedown', (e) => {

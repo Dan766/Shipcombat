@@ -28,6 +28,9 @@ export interface Command {
   ammo: AmmoId;
   /** Hold-to-aim: 0 = standing spread, 1 = fully narrowed (~1s held). */
   aimHold: number;
+  /** Crowd on everything she'll carry: a short burst of speed for ramming
+   *  or running, paid for out of the boost meter. Absent = not boosting. */
+  boost?: boolean;
 }
 
 export type AmmoId = 'round' | 'chain';
@@ -42,6 +45,9 @@ export type CombatEvent =
   | { kind: 'splash'; x: number; z: number }
   | { kind: 'impact'; x: number; y: number; z: number; shipId: number }
   | { kind: 'dropBlast'; x: number; z: number }
+  /** Two hulls met hard enough to do damage. `rammerId` is the ship whose
+   *  bow did the hitting, or -1 for a glancing side-to-side scrape. */
+  | { kind: 'ram'; x: number; z: number; rammerId: number; victimId: number }
   | { kind: 'sunk'; shipId: number };
 
 /** Out-of-band requests. Debug affordances for the slice, not gameplay. */
@@ -69,6 +75,10 @@ export interface ShipState {
   reloadBow: number;
   /** Stern drop weapon: one charge; 1 = charge loaded, 0 = just dropped. */
   reloadStern: number;
+  /** Boost meter, 0 (spent) .. 1 (full). Drains while boosting. */
+  boost: number;
+  /** True while the ship is actually under boost this tick. */
+  boosting: boolean;
   /** Ticks remaining in the sinking animation; 0 when afloat. */
   sinking: number;
 }
