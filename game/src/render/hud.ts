@@ -164,6 +164,7 @@ export function renderHud(el: HTMLElement, m: HudModel): void {
       <div class="name">${cls.name} <span class="dim">${cls.rig}</span></div>
       ${bar('Hull', m.me.hull, tone(m.me.hull))}
       ${bar('Rig', m.me.rig, tone(m.me.rig))}
+      ${bar(m.me.boosting ? 'RAM!' : 'Boost', m.me.boost, m.me.boosting ? '#e2a84f' : '#6aa8d8')}
       <div class="sub">Sail ${Math.round(m.me.sail * 100)}% &middot; ${m.latencyMs} ms</div>
     </div>
     <div class="panel guns">
@@ -178,7 +179,7 @@ export function renderHud(el: HTMLElement, m: HudModel): void {
           `<span class="chip${a === m.ammo ? ' on' : ''}">${AMMO[a].label}</span>`).join('')}
         <span class="rangechip">Range ${m.aimRange.toFixed(0)} m</span>
       </div>
-      <div class="keys">A/D steer &middot; W/S sail &middot; mouse look &middot; LMB fire &middot; hold RMB aim &middot; R ammo &middot; wheel range &middot; C class &middot; 1-5 weather</div>
+      <div class="keys">A/D steer &middot; W/S sail &middot; Shift boost/ram &middot; mouse look &middot; LMB fire &middot; hold RMB aim &middot; R ammo &middot; wheel range &middot; C class &middot; 1-5 weather</div>
     </div>
     ${sinking}`;
 }

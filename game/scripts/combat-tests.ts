@@ -12,6 +12,7 @@ import { World, ARENA_HALF } from '../src/sim/world.ts';
 import { elevationForRange, timeOfFlight, stepProjectile, MUZZLE_SPEED, MAX_RANGE, MIN_RANGE, GRAVITY, type Projectile } from '../src/sim/ballistics.ts';
 import { AMMO, DAMAGE_PER_BALL, hitsShip, DROP_RADIUS, rigEfficiency, applyHit, fireVolley, fireDropWeapon } from '../src/sim/combat.ts';
 import { botCommand, newBotMemory } from '../src/sim/bot.ts';
+import { RAM_COOLDOWN_TICKS } from '../src/sim/ram.ts';
 import { pointOfSail, pointOfSailName, angleOffWind, normalizeAngle } from '../src/sim/wind.ts';
 import { waveHeight, waveNormal } from '../src/sim/waves.ts';
 import { armedMountFor, LOOK_ARCS, LOOK_HYSTERESIS_DEG } from '../src/sim/lookSector.ts';
@@ -842,6 +843,91 @@ console.log('\nfireDropWeapon');
   check('drop charge starts astern of the ship', d.z < s.z && Math.abs(d.z + cls.geo.len * 0.55) < 1e-6);
   const again = fireDropWeapon(s, 7, () => 0);
   check('same tick gives the same drop position (deterministic)', again.x === d.x && again.z === d.z);
+}
+
+/* --- boost and ramming ------------------------------------------------- */
+console.log('\nboost and ramming');
+{
+  // Boost: faster than full sail on the same course, and it drains.
+  const run = (boost: boolean) => {
+    const w = new World({ weather: 'clear', windFrom: Math.PI });
+    w.addShip(1, 'brig', 0, 0, Math.PI / 2);
+    for (let t = 0; t < TICK_HZ * 3; t++) { w.applyCommand(1, hold({ sail: 1, boost })); w.step(); }
+    return w.ships[0];
+  };
+  const plain = run(false), boosted = run(true);
+  check('boost makes a ship faster than full sail', boosted.speed > plain.speed * 2,
+    `${boosted.speed.toFixed(2)} vs ${plain.speed.toFixed(2)} m/s`);
+  check('boost drains the meter', boosted.boost < 0.4 && plain.boost === 1, `meter ${boosted.boost.toFixed(2)}`);
+
+  // Boost works even head to wind, where sail alone gives nothing.
+  const irons = new World({ weather: 'clear', windFrom: 0 });
+  irons.addShip(1, 'brig', 0, 0, 0);
+  for (let t = 0; t < TICK_HZ * 2; t++) { irons.applyCommand(1, hold({ sail: 1, boost: true })); irons.step(); }
+  check('boost moves a ship in irons', irons.ships[0].speed > 10, `${irons.ships[0].speed.toFixed(2)} m/s`);
+
+  // An empty meter locks out until it has refilled, rather than stuttering.
+  const dry = new World({ weather: 'clear' });
+  dry.addShip(1, 'brig', 0, 0, 0);
+  for (let t = 0; t < TICK_HZ * 5; t++) { dry.applyCommand(1, hold({ boost: true })); dry.step(); }
+  check('an empty meter stops boosting', !dry.ships[0].boosting && dry.ships[0].boost > 0,
+    `meter ${dry.ships[0].boost.toFixed(3)}`);
+
+  // Hulls cannot pass through each other.
+  const pass = new World({ weather: 'clear' });
+  pass.addShip(1, 'brig', 0, -30, 0);
+  pass.addShip(2, 'brig', 0, 0, Math.PI / 2);
+  pass.ships[0].speed = 3;
+  for (let t = 0; t < TICK_HZ * 12; t++) { pass.applyCommand(1, hold({ sail: 1 })); pass.applyCommand(2, hold()); pass.step(); }
+  const [p1, p2] = pass.ships;
+  check('a ship cannot sail through another', p1.z < p2.z, `z ${p1.z.toFixed(1)} vs ${p2.z.toFixed(1)}`);
+
+  // A bow driven into a broadside: the victim takes far more than the rammer.
+  const ram = new World({ weather: 'clear' });
+  ram.addShip(1, 'brig', 0, -13.2, 0);
+  ram.addShip(2, 'brig', 0, 0, Math.PI / 2);
+  ram.ships[0].speed = 20;
+  ram.applyCommand(1, hold({ sail: 1, boost: true })); ram.applyCommand(2, hold());
+  ram.step();
+  const ev = ram.snapshot().events.find((e) => e.kind === 'ram');
+  const [r1, r2] = ram.ships;
+  check('a boosted ram into a broadside does serious damage', 1 - r2.hull > 0.3, `victim lost ${((1 - r2.hull) * 100).toFixed(0)}%`);
+  check('the rammer takes much less than it deals', (1 - r1.hull) < (1 - r2.hull) / 2,
+    `rammer ${((1 - r1.hull) * 100).toFixed(0)}% vs victim ${((1 - r2.hull) * 100).toFixed(0)}%`);
+  check('a ram emits a ram event naming rammer and victim',
+    ev?.kind === 'ram' && ev.rammerId === 1 && ev.victimId === 2);
+  check("the impact kills the rammer's way", r1.speed < 20 * 0.3, `20 -> ${r1.speed.toFixed(2)} m/s`);
+
+  // Staying in contact does not grind out a hit every tick.
+  const hullAfter = r2.hull;
+  for (let t = 0; t < RAM_COOLDOWN_TICKS - 2; t++) { ram.applyCommand(1, hold({ sail: 1, boost: true })); ram.step(); }
+  check('no second ram inside the cooldown', r2.hull === hullAfter);
+
+  // A slow nudge only shoves.
+  const nudge = new World({ weather: 'clear' });
+  nudge.addShip(1, 'brig', 0, -13.4, 0);
+  nudge.addShip(2, 'brig', 0, 0, Math.PI / 2);
+  nudge.ships[0].speed = 1;
+  nudge.step();
+  check('a slow nudge does no damage', nudge.ships[0].hull === 1 && nudge.ships[1].hull === 1);
+
+  // A galleon runs a sloop down; a sloop ramming a galleon mostly hurts itself.
+  const crush = new World({ weather: 'clear' });
+  crush.addShip(1, 'galleon', 0, -18.8, 0);
+  crush.addShip(2, 'sloop', 0, 0, Math.PI / 2);
+  crush.ships[0].speed = 13.75;
+  crush.step();
+  check('a boosted galleon sinks a sloop in one ram', crush.ships[1].sinking > 0,
+    `sloop hull ${(crush.ships[1].hull * 100).toFixed(0)}%`);
+
+  const folly = new World({ weather: 'clear' });
+  folly.addShip(1, 'sloop', 0, -13.2, 0);
+  folly.addShip(2, 'galleon', 0, 0, Math.PI / 2);
+  folly.ships[0].speed = 22.5;
+  folly.step();
+  check('a sloop ramming a galleon hurts itself more than the galleon',
+    (1 - folly.ships[0].hull) > (1 - folly.ships[1].hull),
+    `sloop ${((1 - folly.ships[0].hull) * 100).toFixed(0)}% vs galleon ${((1 - folly.ships[1].hull) * 100).toFixed(0)}%`);
 }
 
 console.log('');

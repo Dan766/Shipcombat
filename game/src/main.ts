@@ -269,6 +269,7 @@ engine.runRenderLoop(() => {
       aimRange: aimOverride ?? steer.aimRange,
       ammo: steer.ammo,
       aimHold: look.aimHold,
+      boost: steer.boost,
     });
   }
 
@@ -330,6 +331,12 @@ function consumeEvents(snap: NonNullable<ReturnType<typeof interp.sample>>, amp:
       if (ship && ship.id !== PLAYER_ID) {
         if (e.mount === 'stern') spawnDropSplash(ship);
         else spawnMuzzleSmoke(ship, e.mount);
+      }
+    } else if (e.kind === 'ram') {
+      // Splintered timber and spray thrown up where the hulls met.
+      const y = waveHeight(e.x, e.z, amp);
+      for (let i = 0; i < 4; i++) {
+        effects.spawnPuff(e.x, y + 0.8 + i * 0.9, e.z, 2.6 + i * 0.5, 1.0 + i * 0.2, 1.4);
       }
     } else if (e.kind === 'dropBlast') {
       effects.spawnPuff(e.x, waveHeight(e.x, e.z, amp) + 1.0, e.z, 3.0, 1.3, 2.6);

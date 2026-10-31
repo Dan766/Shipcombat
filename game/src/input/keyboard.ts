@@ -15,6 +15,7 @@ export interface SteeringIntent {
   sail: number;
   aimRange: number;
   ammo: AmmoId;
+  boost: boolean;
 }
 
 export class KeyboardInput {
@@ -62,6 +63,7 @@ export class KeyboardInput {
       sail: this.sail,
       aimRange: this.aim,
       ammo: this.ammo,
+      boost: this.held.has('shift'),
     };
   }
 

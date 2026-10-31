@@ -12,6 +12,7 @@ import { SHIP_CLASSES, type ShipClassId } from '../data/shipClasses.ts';
 import { WEATHER, type WeatherId } from '../data/weather.ts';
 import { stepProjectile, MIN_RANGE, type Projectile } from './ballistics.ts';
 import { botCommand, newBotMemory, type BotMemory } from './bot.ts';
+import { resolveContact, RAM_COOLDOWN_TICKS } from './ram.ts';
 import { fireVolley, fireDropWeapon, hitsShip, applyHit, rigEfficiency, DROP_RADIUS } from './combat.ts';
 import type { CombatEvent, Command, ControlMessage, ShipState, Snapshot } from './types.ts';
 import { TICK_HZ } from './types.ts';
@@ -22,9 +23,26 @@ const DT = 1 / TICK_HZ;
 
 /** How much a ship's turn rate falls off as it approaches top speed. */
 const TURN_SPEED_FALLOFF = 0.45;
+/** Turn rate never drops below this fraction — boost can carry a ship well
+ *  past base speed, and the falloff must not run negative and flip the helm. */
+const TURN_RATE_FLOOR = 0.3;
 
 /** Arena half-extent in metres. Ships are held inside it. */
 export const ARENA_HALF = 300;
+
+/** Boost: target-speed multiplier, and how much harder the ship accelerates
+ *  toward it. The floor is a fraction of base speed the boost guarantees even
+ *  in irons — sweeps out, every hand hauling — so a ram is never pinned to
+ *  the wind. */
+const BOOST_SPEED_MULT = 2.5;
+const BOOST_ACCEL_MULT = 6;
+const BOOST_FLOOR = 1.0;
+/** Seconds to drain a full meter, and to refill an empty one. */
+const BOOST_DRAIN_SEC = 4;
+const BOOST_RECHARGE_SEC = 10;
+/** Run the meter dry and it has to refill this far before boost works again,
+ *  so holding shift on an empty meter is not a stutter of one-tick bursts. */
+const BOOST_RELOCK = 0.3;
 
 /** Ticks a hull stays visible while it goes under, before respawning. */
 const SINK_TICKS = TICK_HZ * 5;
@@ -39,6 +57,10 @@ interface ShipRuntime extends ShipState {
   bot?: BotMemory;
   /** Where this ship respawns. Fixed per ship so respawns are deterministic. */
   spawn: { x: number; z: number; heading: number };
+  /** Meter ran dry and has not yet refilled to BOOST_RELOCK. */
+  boostLocked: boolean;
+  /** Ticks until this ship can be hurt by (or hurt with) another ram. */
+  ramCooldown: number;
 }
 
 export interface WorldOptions {
@@ -69,6 +91,7 @@ export class World {
       speed: 0, sail: 1,
       hull: 1, rig: 1,
       reloadPort: 1, reloadStbd: 1, reloadBow: 1, reloadStern: 1,
+      boost: 1, boosting: false, boostLocked: false, ramCooldown: 0,
       sinking: 0,
       bot: isBot ? newBotMemory() : undefined,
       spawn: { x, z, heading },
@@ -107,6 +130,7 @@ export class World {
         // than carrying a galleon's damage onto a sloop.
         ship.hull = 1; ship.rig = 1;
         ship.reloadPort = 1; ship.reloadStbd = 1; ship.reloadBow = 1; ship.reloadStern = 1;
+        ship.boost = 1; ship.boostLocked = false; ship.ramCooldown = 0;
         ship.sinking = 0;
       }
     }
@@ -140,7 +164,9 @@ export class World {
       }
 
       let turn = 0;
+      let wantBoost = false;
       if (cmd) {
+        wantBoost = cmd.boost === true;
         // Math.min/max pass NaN through, and one NaN heading poisons the ship's
         // position for good, so a malformed command reads as "no input".
         turn = Number.isFinite(cmd.turn) ? Math.max(-1, Math.min(1, cmd.turn)) : 0;
@@ -153,14 +179,27 @@ export class World {
 
       const speedFrac = def.sail.baseSpeed > 0 ? ship.speed / def.sail.baseSpeed : 0;
       const turnRate = ((def.sail.turnRate * Math.PI) / 180)
-        * (1 - TURN_SPEED_FALLOFF * speedFrac) * eff;
+        * Math.max(TURN_RATE_FLOOR, 1 - TURN_SPEED_FALLOFF * speedFrac) * eff;
       ship.heading = normalizeAngle(ship.heading + turn * turnRate * DT);
 
+      ship.boosting = wantBoost && !ship.boostLocked && ship.boost > 0;
+      if (ship.boosting) {
+        ship.boost = Math.max(0, ship.boost - DT / BOOST_DRAIN_SEC);
+        if (ship.boost === 0) ship.boostLocked = true;
+      } else {
+        ship.boost = Math.min(1, ship.boost + DT / BOOST_RECHARGE_SEC);
+        if (ship.boost >= BOOST_RELOCK) ship.boostLocked = false;
+      }
+      if (ship.ramCooldown > 0) ship.ramCooldown--;
+
       const off = angleOffWind(ship.heading, this.windFrom);
-      const target = def.sail.baseSpeed * pointOfSail(off) * windStrength * ship.sail * eff;
+      let target = def.sail.baseSpeed * pointOfSail(off) * windStrength * ship.sail * eff;
+      if (ship.boosting) {
+        target = Math.max(target, def.sail.baseSpeed * BOOST_FLOOR * eff) * BOOST_SPEED_MULT;
+      }
 
       const delta = target - ship.speed;
-      const rate = def.sail.accel * (delta > 0 ? 1 : 1.6);
+      const rate = def.sail.accel * (delta > 0 ? (ship.boosting ? BOOST_ACCEL_MULT : 1) : 1.6);
       ship.speed += Math.max(-Math.abs(delta), Math.min(Math.abs(delta), rate * DT * Math.sign(delta)));
 
       ship.x += Math.sin(ship.heading) * ship.speed * DT;
@@ -208,6 +247,7 @@ export class World {
       }
     }
 
+    this.resolveHullContacts();
     this.stepProjectiles(amp);
 
     this.pending.clear();
@@ -274,6 +314,36 @@ export class World {
     this.projectiles = alive;
   }
 
+  /** Hulls can't pass through each other; hitting one hard enough is a ram.
+   *  Pairs are visited in array order, which is fixed, so this stays
+   *  deterministic. */
+  private resolveHullContacts(): void {
+    for (let i = 0; i < this.ships.length; i++) {
+      for (let j = i + 1; j < this.ships.length; j++) {
+        const A = this.ships[i], B = this.ships[j];
+        if (A.sinking > 0 || B.sinking > 0) continue;
+        const hit = resolveContact(A, B, A.ramCooldown === 0 && B.ramCooldown === 0);
+        if (!hit) continue;
+        for (const s of [A, B]) {
+          s.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, s.x));
+          s.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, s.z));
+        }
+        if (hit.damageA <= 0 && hit.damageB <= 0) continue;
+
+        A.ramCooldown = RAM_COOLDOWN_TICKS;
+        B.ramCooldown = RAM_COOLDOWN_TICKS;
+        const victimId = hit.rammerId === A.id ? B.id : hit.rammerId === B.id ? A.id : -1;
+        this.events.push({ kind: 'ram', x: hit.x, z: hit.z, rammerId: hit.rammerId, victimId });
+        for (const s of [A, B]) {
+          if (s.hull <= 0 && s.sinking === 0) {
+            s.sinking = SINK_TICKS;
+            this.events.push({ kind: 'sunk', shipId: s.id });
+          }
+        }
+      }
+    }
+  }
+
   private respawn(ship: ShipRuntime): void {
     ship.x = ship.spawn.x;
     ship.z = ship.spawn.z;
@@ -285,6 +355,10 @@ export class World {
     ship.reloadStbd = 1;
     ship.reloadBow = 1;
     ship.reloadStern = 1;
+    ship.boost = 1;
+    ship.boosting = false;
+    ship.boostLocked = false;
+    ship.ramCooldown = 0;
   }
 
   snapshot(): Snapshot {
@@ -300,6 +374,7 @@ export class World {
         hull: s.hull, rig: s.rig,
         reloadPort: s.reloadPort, reloadStbd: s.reloadStbd,
         reloadBow: s.reloadBow, reloadStern: s.reloadStern,
+        boost: s.boost, boosting: s.boosting,
         sinking: s.sinking,
       })),
       projectiles: this.projectiles.map((p) => ({
@@ -316,7 +391,8 @@ export class World {
     for (const s of [...this.ships].sort((a, b) => a.id - b.id)) {
       parts.push(s.id, s.cls, round(s.x), round(s.z), round(s.heading), round(s.speed),
         round(s.sail), round(s.hull), round(s.rig), round(s.reloadPort), round(s.reloadStbd),
-        round(s.reloadBow), round(s.reloadStern), s.sinking);
+        round(s.reloadBow), round(s.reloadStern), round(s.boost), s.boosting ? 1 : 0,
+        s.boostLocked ? 1 : 0, s.ramCooldown, s.sinking);
     }
     // Projectiles are exactly the sort of state that drifts, so they are in
     // the digest too.
