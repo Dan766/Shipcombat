@@ -609,6 +609,8 @@ console.log('\nworld command handling');
   a.applyCommand(1, hold({ seq: 3 })); a.step();
   check('ackSeq never moves backwards', a.ackSeq === 7);
   check('snapshot carries ackSeq', a.snapshot().ackSeq === 7);
+  a.applyCommand(1, hold({ seq: NaN })); a.step();
+  check('non-finite seq does not poison ackSeq', a.ackSeq === 7);
 
   // Command values are clamped to legal ranges.
   const c = new World({ weather: 'clear' });

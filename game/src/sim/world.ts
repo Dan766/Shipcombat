@@ -145,7 +145,7 @@ export class World {
         // position for good, so a malformed command reads as "no input".
         turn = Number.isFinite(cmd.turn) ? Math.max(-1, Math.min(1, cmd.turn)) : 0;
         if (Number.isFinite(cmd.sail)) ship.sail = Math.max(0, Math.min(1, cmd.sail));
-        if (!ship.bot) this.ackSeq = Math.max(this.ackSeq, cmd.seq);
+        if (!ship.bot && Number.isFinite(cmd.seq)) this.ackSeq = Math.max(this.ackSeq, cmd.seq);
       }
 
       // Rigging damage costs speed and handling — this is what chain shot buys.

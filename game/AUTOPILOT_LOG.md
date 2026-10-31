@@ -1,5 +1,12 @@
 # Autopilot log
 
+## 2026-10-31 (UTC, run 26) — non-finite seq no longer poisons ackSeq
+- Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
+- Change: `src/sim/world.ts` only advances `ackSeq` when `cmd.seq` is finite (Math.max passed NaN through, making ackSeq NaN permanently and breaking client reconciliation). Test: "non-finite seq does not poison ackSeq" in "world command handling"; fails without the fix, passes with it.
+- Verification: verify and build green after.
+- Skipped: brace / crew / grape shot still undesigned.
+- Ideas: validate Command shape at the net boundary in one place; sweep duels for time-to-decide; storm frigate duel still ~577 s.
+
 ## 2026-10-30 (UTC, run 25) — unknown fire mount no longer fires the stern weapon
 - Baseline: merge no-op; verify (typecheck, layering, determinism, combat) green, build green. verify:render NOT run: small sim-only change, no render path touched; run 14 numbers stand.
 - Change: `src/sim/world.ts` only acts on `cmd.fire` when it is one of port/starboard/bow/stern; previously any other value fell through the ternary and fired the drop weapon. Test: "unknown fire mount fires nothing and keeps stern loaded" in "world command handling"; fails without the fix (4 projectiles), passes with it.
