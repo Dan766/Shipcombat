@@ -39,11 +39,11 @@ function makeCommands(count: number): Command[] {
 
 interface RunResult { hash: string; hits: number; sinks: number; shots: number }
 
-function run(ticks: number, cmds: Command[]): RunResult {
+function run(ticks: number, cmds: Command[], windFrom = Math.PI * 0.25): RunResult {
   // A duel, not a cruise: a scripted player against the AI, with real hits.
   // Projectiles and reload timers are exactly the kind of state that drifts,
   // so the fight is the thing worth hashing.
-  const w = new World({ weather: 'fair', windFrom: Math.PI * 0.25 });
+  const w = new World({ weather: 'fair', windFrom });
   w.addShip(1, 'brig', 0, 0, 0);
   w.addShip(2, 'brig', 90, 40, Math.PI, true);
   let hits = 0, sinks = 0, shots = 0;
@@ -93,6 +93,24 @@ if (!Number.isFinite(x) || !Number.isFinite(z) || (Math.abs(x) < 1 && Math.abs(z
   process.exit(1);
 }
 
+// The hash must be sensitive: a different wind or a different command log has
+// to change it, or "identical hash" proves nothing about drift.
+const otherWind = run(TICKS, cmds, Math.PI * 1.25);
+if (otherWind.hash === a.hash) {
+  console.error('FAIL: hash ignores wind direction');
+  process.exit(1);
+}
+const otherCmds = run(TICKS, cmds.map((c) => ({ ...c, turn: -c.turn })));
+if (otherCmds.hash === a.hash) {
+  console.error('FAIL: hash ignores the command log');
+  process.exit(1);
+}
+const shorter = run(TICKS - 1, cmds);
+if (shorter.hash === a.hash) {
+  console.error('FAIL: hash ignores the tick count');
+  process.exit(1);
+}
+
 // And every class / weather must be reachable from the tables the sim reads.
 if (SHIP_CLASS_ORDER.length !== 4 || WEATHER_ORDER.length !== 5) {
   console.error('FAIL: unexpected roster or weather table size');
@@ -101,4 +119,5 @@ if (SHIP_CLASS_ORDER.length !== 4 || WEATHER_ORDER.length !== 5) {
 
 console.log(`determinism OK — ${TICKS} ticks, identical hash across runs`);
 console.log(`  ship 1 ended at x=${x.toFixed(2)} z=${z.toFixed(2)}`);
+console.log('  hash differs under changed wind, commands and tick count');
 console.log(`  duel: ${a.shots} volleys, ${a.hits} hits, ${a.sinks} sinkings`);

@@ -12,25 +12,39 @@
  */
 
 import { MAX_RANGE, MIN_RANGE } from './ballistics.ts';
-import type { Command, ShipState } from './types.ts';
-import { normalizeAngle } from './wind.ts';
+import { TICK_HZ, type Command, type ShipState } from './types.ts';
+import { angleOffWind, normalizeAngle } from './wind.ts';
 
 /** Range the bot tries to hold, in metres. Inside its guns, outside a ram. */
 const PREFERRED_RANGE = 130;
 /** How far off the beam a target may be before the bot will fire. */
 const FIRE_ARC = 0.42; // ~24 degrees
+/** How far off the bow a target may be before the bow chasers will fire. */
+const BOW_ARC = 0.17; // ~10 degrees
+/** How far off dead astern a follower may be before the drop weapon is used. */
+const STERN_ARC = 0.52; // ~30 degrees
+/** Follower distance, in metres, close enough for the charge to catch it. */
+const STERN_RANGE = 18;
+/** Ticks of steady aim to reach full spread reduction, matching the player's ~1 s hold. */
+const AIM_RAMP_TICKS = TICK_HZ;
+/** Own hull fraction below which the bot breaks off, if it is losing the duel. */
+const FLEE_HULL = 0.3;
+/** Closest a fleeing bot will point to the wind (rad): ~50 deg, out of irons. */
+const FLEE_MIN_WIND_ANGLE = 0.87;
 
 export interface BotMemory {
   seq: number;
   /** Which way it circles. Flipped only when it needs to disengage. */
   circleDir: 1 | -1;
+  /** 0..1, how long a broadside has been steadily laid on the target. */
+  aimHold: number;
 }
 
 export function newBotMemory(): BotMemory {
-  return { seq: 0, circleDir: 1 };
+  return { seq: 0, circleDir: 1, aimHold: 0 };
 }
 
-export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory): Command {
+export function botCommand(self: ShipState, target: ShipState | undefined, mem: BotMemory, windFrom?: number): Command {
   const idle: Command = {
     seq: mem.seq++, turn: 0, sail: 1, fire: null, aimRange: PREFERRED_RANGE, ammo: 'round', aimHold: 0,
   };
@@ -48,7 +62,27 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
     : range < PREFERRED_RANGE * 0.7 ? 0.55
       : 0;
   const wantOffset = (Math.PI / 2 + closing) * mem.circleDir;
-  const desired = normalizeAngle(bearing - wantOffset);
+  // A badly hurt bot that is also worse off than its target runs for open
+  // water instead of circling to the death; guns still fire if one bears.
+  const fleeing = self.hull < FLEE_HULL && self.hull < target.hull;
+  // Its opponent doing the same is a quarry: run it down rather than circle at
+  // the preferred range while it sails away (duels used to stall that way).
+  const quarry = !fleeing && target.hull < FLEE_HULL && target.hull < self.hull;
+  const chasing = quarry && range > PREFERRED_RANGE * 0.7;
+  // Once on top of a quarry, hold the beam without opening the range: backing
+  // off to the preferred range just let it sail clear and the duel oscillated.
+  // Running straight away is no escape if that heading is dead into the wind
+  // (irons: ~0.12x speed), so a fleeing bot bears off to the nearest heading
+  // that still has way on.
+  let away = normalizeAngle(bearing + Math.PI);
+  if (fleeing && windFrom !== undefined && angleOffWind(away, windFrom) < FLEE_MIN_WIND_ANGLE) {
+    const side = normalizeAngle(away - windFrom) < 0 ? -1 : 1;
+    away = normalizeAngle(windFrom + side * FLEE_MIN_WIND_ANGLE);
+  }
+  const desired = fleeing ? away
+    : chasing ? bearing
+      : quarry ? normalizeAngle(bearing - (Math.PI / 2) * mem.circleDir)
+        : normalizeAngle(bearing - wantOffset);
   const error = normalizeAngle(desired - self.heading);
 
   const turn = Math.max(-1, Math.min(1, error * 2.2));
@@ -64,14 +98,31 @@ export function botCommand(self: ShipState, target: ShipState | undefined, mem: 
   // close enough to finish.
   const useChain = target.rig > 0.55 && range > PREFERRED_RANGE;
 
+  // Bow chasers are the only gun that bears dead ahead, and always load chain.
+  // A broadside is the better weapon, so they only fire when none can.
+  const bowReady = self.reloadBow >= 1 && Math.abs(relative) < BOW_ARC && inRange;
+  const broadside = inArc && ready && inRange;
+
+  // The stern charge only helps against a ship tailing close behind, so it is
+  // kept for exactly that; a broadside still takes priority if one bears.
+  const sternReady = self.reloadStern >= 1 && range < STERN_RANGE
+    && Math.PI - Math.abs(relative) < STERN_ARC;
+
+  // Like a player holding aim: steady while a broadside bears, kept through
+  // the reload, lost the moment the target slides off the beam or a gun fires.
+  mem.aimHold = inArc && inRange ? Math.min(1, mem.aimHold + 1 / AIM_RAMP_TICKS) : 0;
+  const aimHold = mem.aimHold;
+  if (broadside) mem.aimHold = 0;
+
   return {
     seq: mem.seq++,
     turn,
     sail: 1,
-    fire: inArc && ready && inRange ? (side < 0 ? 'port' : 'starboard') : null,
+    fire: broadside ? (side < 0 ? 'port' : 'starboard')
+      : sternReady ? 'stern' : bowReady ? 'bow' : null,
     aimRange: Math.max(MIN_RANGE, Math.min(range, MAX_RANGE)),
     ammo: useChain ? 'chain' : 'round',
-    aimHold: 0,
+    aimHold,
   };
 }
 
@@ -88,4 +139,4 @@ export function firingSide(self: ShipState, to: ShipState): -1 | 1 | 0 {
   return relative < 0 ? -1 : 1;
 }
 
-export { PREFERRED_RANGE, FIRE_ARC };
+export { PREFERRED_RANGE, FIRE_ARC, FLEE_HULL };

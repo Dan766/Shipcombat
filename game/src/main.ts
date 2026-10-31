@@ -377,6 +377,20 @@ function updateReticle(me: ShipState, amp: number): void {
     fireOverride = side;
   },
   setAim: (r: number) => { aimOverride = r; },
+  /* Park the foe dead abeam of the player (side -1 port / 1 starboard) at
+   * `range` metres, stopped and no longer driven by the bot, so a verification
+   * broadside has a target in the firing arc. */
+  placeFoe: (side: -1 | 1, range: number) => {
+    const me = world.ships.find((s) => s.id === PLAYER_ID);
+    const foe = world.ships.find((s) => s.id === AI_ID);
+    if (!me || !foe) return;
+    const beam = me.heading + (side * Math.PI) / 2;
+    foe.x = me.x + Math.sin(beam) * range;
+    foe.z = me.z + Math.cos(beam) * range;
+    foe.heading = me.heading;
+    foe.speed = 0;
+    foe.bot = undefined;
+  },
   triangles: () => scene.getActiveMeshes().length,
   vertices: () => scene.getTotalVertices(),
 };

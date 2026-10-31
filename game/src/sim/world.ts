@@ -10,7 +10,7 @@
 
 import { SHIP_CLASSES, type ShipClassId } from '../data/shipClasses.ts';
 import { WEATHER, type WeatherId } from '../data/weather.ts';
-import { stepProjectile, type Projectile } from './ballistics.ts';
+import { stepProjectile, MIN_RANGE, type Projectile } from './ballistics.ts';
 import { botCommand, newBotMemory, type BotMemory } from './bot.ts';
 import { fireVolley, fireDropWeapon, hitsShip, applyHit, rigEfficiency, DROP_RADIUS } from './combat.ts';
 import type { CombatEvent, Command, ControlMessage, ShipState, Snapshot } from './types.ts';
@@ -126,6 +126,8 @@ export class World {
         ship.speed *= 0.94;
         ship.x += Math.sin(ship.heading) * ship.speed * DT;
         ship.z += Math.cos(ship.heading) * ship.speed * DT;
+        ship.x = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, ship.x));
+        ship.z = Math.max(-ARENA_HALF, Math.min(ARENA_HALF, ship.z));
         if (ship.sinking === 0) this.respawn(ship);
         continue;
       }
@@ -134,14 +136,16 @@ export class World {
       let cmd = this.pending.get(ship.id);
       if (ship.bot) {
         const target = this.ships.find((s) => s.id !== ship.id && s.sinking === 0);
-        cmd = botCommand(ship, target, ship.bot);
+        cmd = botCommand(ship, target, ship.bot, this.windFrom);
       }
 
       let turn = 0;
       if (cmd) {
-        turn = Math.max(-1, Math.min(1, cmd.turn));
-        ship.sail = Math.max(0, Math.min(1, cmd.sail));
-        if (!ship.bot) this.ackSeq = Math.max(this.ackSeq, cmd.seq);
+        // Math.min/max pass NaN through, and one NaN heading poisons the ship's
+        // position for good, so a malformed command reads as "no input".
+        turn = Number.isFinite(cmd.turn) ? Math.max(-1, Math.min(1, cmd.turn)) : 0;
+        if (Number.isFinite(cmd.sail)) ship.sail = Math.max(0, Math.min(1, cmd.sail));
+        if (!ship.bot && Number.isFinite(cmd.seq)) this.ackSeq = Math.max(this.ackSeq, cmd.seq);
       }
 
       // Rigging damage costs speed and handling — this is what chain shot buys.
@@ -169,7 +173,7 @@ export class World {
       ship.reloadBow = Math.min(1, ship.reloadBow + DT / def.combat.bowChasers.reloadSec);
       ship.reloadStern = Math.min(1, ship.reloadStern + DT / def.combat.dropWeapon.reloadSec);
 
-      if (cmd && cmd.fire) {
+      if (cmd && (cmd.fire === 'port' || cmd.fire === 'starboard' || cmd.fire === 'bow' || cmd.fire === 'stern')) {
         const mount = cmd.fire;
         const ready = mount === 'port' ? ship.reloadPort
           : mount === 'starboard' ? ship.reloadStbd
@@ -181,7 +185,9 @@ export class World {
             this.projectiles.push(fireDropWeapon(ship, this.tick, () => this.nextProjectileId++));
             ship.reloadStern = 0;
           } else {
-            const volley = fireVolley(ship, mount, cmd.aimRange, cmd.ammo, cmd.aimHold, this.tick,
+            const volley = fireVolley(ship, mount,
+              Number.isFinite(cmd.aimRange) ? cmd.aimRange : MIN_RANGE, cmd.ammo === 'chain' ? 'chain' : 'round',
+              Number.isFinite(cmd.aimHold) ? cmd.aimHold : 0, this.tick,
               () => this.nextProjectileId++);
             this.projectiles.push(...volley);
             if (mount === 'port') ship.reloadPort = 0;
